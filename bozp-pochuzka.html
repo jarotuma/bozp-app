@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BOZP Pochůzka</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --orange: #F4620A;
+    --orange-light: #FF8940;
+    --black: #111111;
+    --dark: #1A1A1A;
+    --surface: #242424;
+    --surface2: #2E2E2E;
+    --border: #3A3A3A;
+    --text: #F0EDE8;
+    --text-muted: #888880;
+    --text-dim: #555550;
+    --green: #4CAF7D;
+    --red: #E05252;
+    --yellow: #F0C040;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--black);
+    color: var(--text);
+    min-height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+
+  .topbar {
+    background: var(--dark);
+    border-bottom: 2px solid var(--orange);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 22px; letter-spacing: 1px; color: var(--orange); }
+  .topbar-sub { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .findings-badge { background: var(--orange); color: white; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; padding: 2px 8px; border-radius: 20px; min-width: 28px; text-align: center; }
+
+  .tabs { display: flex; background: var(--dark); border-bottom: 1px solid var(--border); position: sticky; top: 64px; z-index: 99; }
+  .tab {
+    flex: 1; padding: 10px 4px; text-align: center;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 13px;
+    letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted);
+    cursor: pointer; border: none; border-bottom: 3px solid transparent;
+    background: transparent; -webkit-appearance: none; touch-action: manipulation;
+    user-select: none; min-height: 44px;
+  }
+  .tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+  .tab-icon { font-size: 16px; display: block; }
+
+  .screen { display: none; padding: 16px; padding-bottom: 80px; }
+  .screen.active { display: block; }
+
+  .section-label {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 1.5px; color: var(--orange);
+    margin-bottom: 12px; margin-top: 20px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-label:first-child { margin-top: 0; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 5px; }
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-family: 'Barlow', sans-serif;
+    font-size: 15px; padding: 10px 12px; outline: none; -webkit-appearance: none;
+    min-height: 44px;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--orange); }
+  .field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  select option { background: var(--dark); }
+
+  button { -webkit-appearance: none; touch-action: manipulation; cursor: pointer; min-height: 44px; }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 20px; border-radius: 8px; border: none;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 16px;
+    letter-spacing: 0.5px; text-transform: uppercase;
+    user-select: none; width: 100%; -webkit-appearance: none; touch-action: manipulation;
+  }
+  .btn:active { opacity: 0.7; }
+  .btn-primary { background: var(--orange); color: white; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-sm { padding: 8px 14px; font-size: 13px; width: auto; min-height: 40px; }
+
+  .mic-tip {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text-muted); font-size: 12px;
+    padding: 7px 10px; margin-top: 4px; line-height: 1.4;
+  }
+
+  .findings-list { display: flex; flex-direction: column; gap: 12px; }
+  .finding-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .finding-card[data-priority="vysoka"] { border-left: 3px solid var(--red); }
+  .finding-card[data-priority="stredni"] { border-left: 3px solid var(--yellow); }
+  .finding-card[data-priority="nizka"] { border-left: 3px solid var(--green); }
+
+  .finding-header {
+    display: flex; align-items: center; padding: 12px 14px; gap: 10px;
+    cursor: pointer; user-select: none; min-height: 56px; touch-action: manipulation;
+  }
+  .finding-num {
+    background: var(--orange); color: white;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 18px;
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .finding-summary { flex: 1; font-size: 14px; color: var(--text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .finding-summary.empty { color: var(--text-dim); font-style: italic; }
+  .finding-body { display: none; padding: 14px; border-top: 1px solid var(--border); }
+  .finding-body.open { display: block; }
+
+  .photo-area { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .photo-preview { width: 72px; height: 72px; border-radius: 6px; object-fit: cover; border: 2px solid var(--orange); flex-shrink: 0; }
+  .photo-placeholder { width: 72px; height: 72px; border-radius: 6px; border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; color: var(--text-dim); }
+  .photo-controls { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  input[type="file"] { display: none; }
+
+  .add-finding-btn {
+    border: 2px dashed var(--border); background: transparent; color: var(--text-muted);
+    border-radius: 10px; padding: 16px; width: 100%;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    -webkit-appearance: none; touch-action: manipulation; min-height: 52px;
+  }
+  .add-finding-btn:active { opacity: 0.7; }
+
+  .summary-box { background: var(--surface); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-key { color: var(--text-muted); }
+  .summary-val { color: var(--text); font-weight: 500; text-align: right; max-width: 55%; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-box { background: var(--surface); border-radius: 10px; padding: 14px; text-align: center; }
+  .stat-num { font-family: 'Barlow Condensed', sans-serif; font-size: 40px; font-weight: 900; color: var(--orange); line-height: 1; }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-top: 4px; }
+
+  .toast {
+    position: fixed; bottom: 40px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2); border: 1px solid var(--orange); color: var(--text);
+    padding: 10px 20px; border-radius: 20px; font-size: 14px;
+    opacity: 0; transition: all 0.3s; z-index: 200; white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .tip { background: rgba(244,98,10,0.08); border-left: 3px solid var(--orange); padding: 10px 12px; border-radius: 0 6px 6px 0; font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+  .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="topbar-logo">⚠ BOZP</div>
+    <div class="topbar-sub">Pochůzková aplikace</div>
+  </div>
+  <div class="topbar-right">
+    <span style="font-size:11px;color:var(--text-muted)">NÁLEZY</span>
+    <span class="findings-badge" id="badge">0</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" id="tab-0" type="button"><span class="tab-icon">📋</span>Hlavička</button>
+  <button class="tab" id="tab-1" type="button"><span class="tab-icon">🔍</span>Nálezy</button>
+  <button class="tab" id="tab-2" type="button"><span class="tab-icon">📤</span>Export</button>
+</div>
+
+<!-- SCREEN 0 -->
+<div class="screen active" id="screen-0">
+  <div class="section-label">Identifikace dokumentu</div>
+  <div class="field"><label>Číslo prověrky</label><input type="text" id="h-cislo" placeholder="např. BOZP-2025-01"></div>
+  <div class="field"><label>Datum prověrky</label><input type="date" id="h-datum"></div>
+  <div class="section-label">Pracoviště a účastníci</div>
+  <div class="field"><label>Pracoviště</label><input type="text" id="h-pracoviste" placeholder="např. Tažírna, Sklad A…"></div>
+  <div class="field"><label>Kontrolu provedl</label><input type="text" id="h-provedl" placeholder="Jméno a pozice"></div>
+  <div class="field"><label>Za vedení firmy</label><input type="text" id="h-vedeni" placeholder="Jméno a pozice"></div>
+  <div class="field"><label>Vedoucí pracoviště</label><input type="text" id="h-vedouci" placeholder="Jméno"></div>
+  <div class="field"><label>Za OS KOVO</label><input type="text" id="h-kovo" placeholder="Jméno"></div>
+  <div class="divider"></div>
+  <button class="btn btn-primary" id="btn-to-findings" type="button">✅ Pokračovat na nálezy →</button>
+</div>
+
+<!-- SCREEN 1 -->
+<div class="screen" id="screen-1">
+  <div class="tip">💡 Klepni na nález pro rozbalení. Pro diktování klepni do pole a pak na <strong>🎙 mikrofon na klávesnici</strong>.</div>
+  <div class="findings-list" id="findings-list">
+    <div class="empty-state" id="empty-state">
+      <div class="emoji">🔍</div>
+      <p>Zatím žádné nálezy.<br>Přidej první nález níže.</p>
+    </div>
+  </div>
+  <div style="margin-top:12px">
+    <button class="add-finding-btn" id="btn-add-finding" type="button">＋ Přidat nález</button>
+  </div>
+</div>
+
+<!-- SCREEN 2 -->
+<div class="screen" id="screen-2">
+  <div class="section-label">Přehled pochůzky</div>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Celkem nálezů</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-photos" style="color:var(--green)">0</div><div class="stat-label">S fotodok.</div></div>
+  </div>
+  <div class="summary-box">
+    <div class="summary-row"><span class="summary-key">Číslo prověrky</span><span class="summary-val" id="s-cislo">—</span></div>
+    <div class="summary-row"><span class="summary-key">Datum</span><span class="summary-val" id="s-datum">—</span></div>
+    <div class="summary-row"><span class="summary-key">Pracoviště</span><span class="summary-val" id="s-pracoviste">—</span></div>
+    <div class="summary-row"><span class="summary-key">Kontrolu provedl</span><span class="summary-val" id="s-provedl">—</span></div>
+  </div>
+  <div class="section-label">Stáhnout</div>
+  <button class="btn btn-primary" id="btn-export-share" type="button" style="margin-bottom:10px">↗️ Sdílet přes iOS (AirDrop, Mail, Soubory…)</button>
+  <button class="btn btn-secondary" id="btn-export-download" type="button" style="margin-bottom:10px">📥 Stáhnout soubor (.docx)</button>
+  <button class="btn btn-secondary" id="btn-export-open" type="button" style="margin-bottom:10px">🌐 Otevřít v prohlížeči (uložit ručně)</button>
+  <div class="divider"></div>
+  <button class="btn btn-secondary" id="btn-reset" type="button">🗑 Začít novou pochůzku</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var findings = [];
+var HEADER_FIELDS = ['h-cislo','h-datum','h-pracoviste','h-provedl','h-vedeni','h-vedouci','h-kovo'];
+
+// ── AUTOSAVE ──
+function save() {
+  try {
+    var header = {};
+    HEADER_FIELDS.forEach(function(id) { header[id] = document.getElementById(id).value; });
+    localStorage.setItem('bozp_header', JSON.stringify(header));
+    // Findings bez foto pro rychlost, foto zvlášť
+    var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, priorita: f.priorita, fotoName: f.fotoName }; });
+    localStorage.setItem('bozp_findings', JSON.stringify(lean));
+    // Foto zvlášť (může být velké)
+    findings.forEach(function(f, i) {
+      if (f.foto) localStorage.setItem('bozp_foto_' + i, f.foto);
+      else localStorage.removeItem('bozp_foto_' + i);
+    });
+    // Smazat přebytečná foto
+    for (var i = findings.length; i < 50; i++) localStorage.removeItem('bozp_foto_' + i);
+  } catch(e) { /* localStorage může být plný kvůli fotkám */ }
+}
+
+function loadSaved() {
+  try {
+    var headerRaw = localStorage.getItem('bozp_header');
+    if (headerRaw) {
+      var header = JSON.parse(headerRaw);
+      HEADER_FIELDS.forEach(function(id) { if (header[id]) document.getElementById(id).value = header[id]; });
+    }
+    var findingsRaw = localStorage.getItem('bozp_findings');
+    if (findingsRaw) {
+      findings = JSON.parse(findingsRaw);
+      findings.forEach(function(f, i) {
+        f.foto = localStorage.getItem('bozp_foto_' + i) || null;
+      });
+    }
+  } catch(e) {}
+}
+
+function clearSaved() {
+  try {
+    localStorage.removeItem('bozp_header');
+    localStorage.removeItem('bozp_findings');
+    for (var i = 0; i < 50; i++) localStorage.removeItem('bozp_foto_' + i);
+  } catch(e) {}
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2800);
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  var p = d.split('-');
+  return p[2] + '.' + p[1] + '.' + p[0];
+}
+
+// TABS
+function switchTab(idx) {
+  for (var i = 0; i < 3; i++) {
+    document.getElementById('screen-' + i).classList.toggle('active', i === idx);
+    document.getElementById('tab-' + i).classList.toggle('active', i === idx);
+  }
+  if (idx === 2) updateExportScreen();
+}
+
+document.getElementById('tab-0').addEventListener('click', function() { switchTab(0); });
+document.getElementById('tab-1').addEventListener('click', function() { switchTab(1); });
+document.getElementById('tab-2').addEventListener('click', function() { switchTab(2); });
+document.getElementById('btn-to-findings').addEventListener('click', function() { switchTab(1); });
+
+// Autosave hlavičkových polí
+HEADER_FIELDS.forEach(function(id) {
+  document.getElementById(id).addEventListener('input', function() { save(); });
+  document.getElementById(id).addEventListener('change', function() { save(); });
+});
+
+// ADD FINDING
+document.getElementById('btn-add-finding').addEventListener('click', function() {
+  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', priorita: 'stredni', foto: null, fotoName: '' });
+  renderFindings();
+  setTimeout(function() {
+    var body = document.getElementById('body-' + (findings.length - 1));
+    if (body) body.classList.add('open');
+  }, 60);
+});
+
+function renderFindings() {
+  var list = document.getElementById('findings-list');
+  document.getElementById('badge').textContent = findings.length;
+  var cards = list.querySelectorAll('.finding-card');
+  for (var i = 0; i < cards.length; i++) cards[i].remove();
+  var empty = document.getElementById('empty-state');
+  if (findings.length === 0) { empty.style.display = ''; save(); return; }
+  empty.style.display = 'none';
+  for (var i = 0; i < findings.length; i++) list.appendChild(buildCard(i));
+  save();
+}
+
+function buildCard(i) {
+  var f = findings[i];
+  var card = document.createElement('div');
+  card.className = 'finding-card';
+  card.setAttribute('data-idx', i);
+  card.setAttribute('data-priority', f.priorita);
+
+  // --- HEADER ---
+  var header = document.createElement('div');
+  header.className = 'finding-header';
+
+  var num = document.createElement('div');
+  num.className = 'finding-num';
+  num.textContent = String(i + 1);
+
+  var preview = f.zjisteni ? (f.zjisteni.length > 48 ? f.zjisteni.substring(0, 48) + '…' : f.zjisteni) : '';
+  var summary = document.createElement('div');
+  summary.className = preview ? 'finding-summary' : 'finding-summary empty';
+  summary.textContent = preview || 'Bez popisu';
+
+  var icons = document.createElement('span');
+  icons.style.marginRight = '4px';
+  icons.textContent = f.foto ? '📷' : '';
+
+  var chevron = document.createElement('span');
+  chevron.style.color = 'var(--text-dim)';
+  chevron.textContent = '▾';
+
+  header.appendChild(num);
+  header.appendChild(summary);
+  header.appendChild(icons);
+  header.appendChild(chevron);
+
+  (function(idx) {
+    header.addEventListener('click', function() {
+      var b = document.getElementById('body-' + idx);
+      if (b) b.classList.toggle('open');
+    });
+  })(i);
+
+  card.appendChild(header);
+
+  // --- BODY ---
+  var body = document.createElement('div');
+  body.className = 'finding-body';
+  body.id = 'body-' + i;
+
+  // Zjištění
+  body.appendChild(makeTA('Zjištění', 'zjisteni', i, f.zjisteni, 'Popis nálezu…'));
+  // Doporučení
+  body.appendChild(makeTA('Doporučení', 'doporuceni', i, f.doporuceni, 'Návrh opatření…'));
+
+  // Odpovědná osoba
+  var fOsoba = document.createElement('div');
+  fOsoba.className = 'field';
+  var lOsoba = document.createElement('label');
+  lOsoba.textContent = 'Odpovědná osoba';
+  var iOsoba = document.createElement('input');
+  iOsoba.type = 'text';
+  iOsoba.value = f.odpovedna;
+  iOsoba.placeholder = 'Jméno / zkratka';
+  (function(idx) {
+    iOsoba.addEventListener('input', function() { findings[idx].odpovedna = this.value; save(); });
+  })(i);
+  fOsoba.appendChild(lOsoba);
+  fOsoba.appendChild(iOsoba);
+  body.appendChild(fOsoba);
+
+  // Priorita
+  var fPrio = document.createElement('div');
+  fPrio.className = 'field';
+  var lPrio = document.createElement('label');
+  lPrio.textContent = 'Priorita';
+  var sel = document.createElement('select');
+  [['nizka','🟢 Nízká'],['stredni','🟡 Střední'],['vysoka','🔴 Vysoká']].forEach(function(o) {
+    var opt = document.createElement('option');
+    opt.value = o[0]; opt.textContent = o[1];
+    if (o[0] === f.priorita) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  (function(idx) {
+    sel.addEventListener('change', function() {
+      findings[idx].priorita = this.value;
+      var card = document.querySelector('[data-idx="' + idx + '"]');
+      if (card) card.setAttribute('data-priority', this.value);
+      save();
+    });
+  })(i);
+  fPrio.appendChild(lPrio);
+  fPrio.appendChild(sel);
+  body.appendChild(fPrio);
+
+  // Foto
+  body.appendChild(makePhotoField(i, f));
+
+  // Delete
+  var delBtn = document.createElement('button');
+  delBtn.className = 'btn btn-danger btn-sm';
+  delBtn.type = 'button';
+  delBtn.style.marginTop = '8px';
+  delBtn.textContent = '🗑 Smazat tento nález';
+  (function(idx) {
+    delBtn.addEventListener('click', function() {
+      if (confirm('Smazat nález č. ' + (idx + 1) + '?')) {
+        findings.splice(idx, 1);
+        renderFindings();
+      }
+    });
+  })(i);
+  body.appendChild(delBtn);
+
+  card.appendChild(body);
+  return card;
+}
+
+function makeTA(labelText, key, idx, value, placeholder) {
+  var wrap = document.createElement('div');
+  wrap.className = 'field';
+  var lbl = document.createElement('label');
+  lbl.textContent = labelText;
+  var ta = document.createElement('textarea');
+  ta.value = value;
+  ta.placeholder = placeholder;
+  (function(k, i) {
+    ta.addEventListener('input', function() { findings[i][k] = this.value; save(); });
+  })(key, idx);
+  var tip = document.createElement('div');
+  tip.className = 'mic-tip';
+  tip.innerHTML = '<span style="font-size:15px">🎙</span>&nbsp;Klepni do pole → mikrofon na klávesnici';
+  wrap.appendChild(lbl);
+  wrap.appendChild(ta);
+  wrap.appendChild(tip);
+  return wrap;
+}
+
+function makePhotoField(idx, f) {
+  var wrap = document.createElement('div');
+  wrap.className = 'field';
+  var lbl = document.createElement('label');
+  lbl.textContent = 'Fotodokumentace';
+  var area = document.createElement('div');
+  area.className = 'photo-area';
+
+  if (f.foto) {
+    var img = document.createElement('img');
+    img.className = 'photo-preview';
+    img.src = f.foto;
+    img.alt = 'foto';
+    area.appendChild(img);
+  } else {
+    var ph = document.createElement('div');
+    ph.className = 'photo-placeholder';
+    ph.textContent = '📷';
+    area.appendChild(ph);
+  }
+
+  var fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.setAttribute('capture', 'environment');
+  fileInput.id = 'photo-' + idx;
+  (function(i) {
+    fileInput.addEventListener('change', function() {
+      var file = this.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        findings[i].foto = e.target.result;
+        findings[i].fotoName = file.name;
+        renderFindings();
+        setTimeout(function() {
+          var b = document.getElementById('body-' + i);
+          if (b) b.classList.add('open');
+        }, 60);
+        showToast('📷 Fotka přidána!');
+      };
+      reader.readAsDataURL(file);
+    });
+  })(idx);
+
+  var controls = document.createElement('div');
+  controls.className = 'photo-controls';
+  controls.appendChild(fileInput);
+
+  var photoBtn = document.createElement('button');
+  photoBtn.className = 'btn btn-secondary btn-sm';
+  photoBtn.type = 'button';
+  photoBtn.textContent = f.foto ? '📷 Vyměnit foto' : '📷 Pořídit / vybrat foto';
+  (function(i) {
+    photoBtn.addEventListener('click', function() {
+      document.getElementById('photo-' + i).click();
+    });
+  })(idx);
+  controls.appendChild(photoBtn);
+
+  if (f.foto) {
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn-secondary btn-sm';
+    removeBtn.type = 'button';
+    removeBtn.textContent = '🗑 Smazat foto';
+    (function(i) {
+      removeBtn.addEventListener('click', function() {
+        findings[i].foto = null;
+        findings[i].fotoName = '';
+        renderFindings();
+        setTimeout(function() {
+          var b = document.getElementById('body-' + i);
+          if (b) b.classList.add('open');
+        }, 60);
+      });
+    })(idx);
+    controls.appendChild(removeBtn);
+  }
+
+  area.appendChild(controls);
+  wrap.appendChild(lbl);
+  wrap.appendChild(area);
+  return wrap;
+}
+
+// EXPORT SCREEN
+function updateExportScreen() {
+  var withPhotos = 0;
+  for (var i = 0; i < findings.length; i++) { if (findings[i].foto) withPhotos++; }
+  document.getElementById('stat-total').textContent = findings.length;
+  document.getElementById('stat-photos').textContent = withPhotos;
+  document.getElementById('s-cislo').textContent = document.getElementById('h-cislo').value || '—';
+  document.getElementById('s-datum').textContent = formatDate(document.getElementById('h-datum').value) || '—';
+  document.getElementById('s-pracoviste').textContent = document.getElementById('h-pracoviste').value || '—';
+  document.getElementById('s-provedl').textContent = document.getElementById('h-provedl').value || '—';
+}
+
+document.getElementById('btn-export-share').addEventListener('click', function() { exportDocx('share'); });
+document.getElementById('btn-export-download').addEventListener('click', function() { exportDocx('download'); });
+document.getElementById('btn-export-open').addEventListener('click', function() { exportDocx('open'); });
+document.getElementById('btn-reset').addEventListener('click', function() {
+  if (!confirm('Smazat celou pochůzku a začít znovu?')) return;
+  findings = [];
+  clearSaved();
+  renderFindings();
+  ['h-cislo','h-pracoviste','h-provedl','h-vedeni','h-vedouci','h-kovo'].forEach(function(id) {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('h-datum').value = new Date().toISOString().split('T')[0];
+  switchTab(0);
+  showToast('🔄 Pochůzka resetována');
+});
+
+// DOCX EXPORT
+function base64ToUint8Array(b64) {
+  var raw = atob(b64.split(',')[1]);
+  var arr = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function exportDocx(mode) {
+  if (typeof docx === 'undefined') {
+    showToast('⚠ Potřebuji internet pro export (načítám docx.js)');
+    return;
+  }
+  var D = docx;
+  var h = {
+    cislo: document.getElementById('h-cislo').value,
+    datum: formatDate(document.getElementById('h-datum').value),
+    pracoviste: document.getElementById('h-pracoviste').value,
+    provedl: document.getElementById('h-provedl').value,
+    vedeni: document.getElementById('h-vedeni').value,
+    vedouci: document.getElementById('h-vedouci').value,
+    kovo: document.getElementById('h-kovo').value,
+  };
+
+  function bold(text, size) { return new D.TextRun({ text: text || '', bold: true, size: size || 20 }); }
+  function normal(text, size) { return new D.TextRun({ text: text || '', size: size || 18 }); }
+  var thin = { style: D.BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
+  var orange = { style: D.BorderStyle.SINGLE, size: 8, color: 'F4620A' };
+  function bb(b) { return { top: b, bottom: b, left: b, right: b }; }
+
+  var headerTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows: [
+    new D.TableRow({ children: [
+      new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('BEKAERT Petrovice s.r.o.', 18)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: 'F5F5F5' }, verticalAlign: D.VerticalAlign.CENTER }),
+      new D.TableCell({ width: { size: 55, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('ZÁZNAM O PROVEDENÉ PROVĚRCE BOZP', 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: '222222' }, verticalAlign: D.VerticalAlign.CENTER }),
+      new D.TableCell({ width: { size: 15, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('Číslo prověrky:', 16)] }), new D.Paragraph({ children: [normal(h.cislo, 16)] }), new D.Paragraph({ children: [bold('Datum prověrky:', 16)] }), new D.Paragraph({ children: [normal(h.datum, 16)] })], borders: bb(thin) }),
+    ]})
+  ]});
+
+  var infoTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows:
+    [['Pracoviště:', h.pracoviste],['Kontrolu provedl:', h.provedl],['Za vedení firmy:', h.vedeni],['Vedoucí pracoviště:', h.vedouci],['Za OS KOVO:', h.kovo]].map(function(r) {
+      return new D.TableRow({ children: [
+        new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(r[0], 18)] })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: 'F0F0F0' } }),
+        new D.TableCell({ width: { size: 70, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [normal(r[1], 18)] })], borders: bb(thin) }),
+      ]});
+    })
+  });
+
+  var noticePara = new D.Paragraph({ children: [bold('ZA ODSTRANĚNÍ NALEZENÝCH NESHOD ODPOVÍDÁ VEDOUCÍ PRACOVIŠTĚ.', 20)], alignment: D.AlignmentType.CENTER, spacing: { before: 200, after: 200 } });
+
+  var fHeader = new D.TableRow({ tableHeader: true, children: [
+    new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('č.', 18)], alignment: D.AlignmentType.CENTER })], borders: bb(orange), shading: { type: D.ShadingType.SOLID, fill: 'F4620A' }, verticalAlign: D.VerticalAlign.CENTER }),
+    new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('NÁLEZ', 18)], alignment: D.AlignmentType.CENTER })], borders: bb(orange), shading: { type: D.ShadingType.SOLID, fill: 'F4620A' }, verticalAlign: D.VerticalAlign.CENTER }),
+    new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('FOTODOKUMENTACE', 18)], alignment: D.AlignmentType.CENTER })], borders: bb(orange), shading: { type: D.ShadingType.SOLID, fill: 'F4620A' }, verticalAlign: D.VerticalAlign.CENTER }),
+  ]});
+
+  var fRows = await Promise.all(findings.map(async function(f, i) {
+    var content = [
+      new D.Paragraph({ children: [bold('Zjištění:', 18)], spacing: { before: 40 } }),
+      new D.Paragraph({ children: [normal(f.zjisteni || '—', 18)], spacing: { after: 80 } }),
+      new D.Paragraph({ children: [bold('Doporučení:', 18)] }),
+      new D.Paragraph({ children: [normal(f.doporuceni || '—', 18)], spacing: { after: 80 } }),
+      new D.Paragraph({ children: [bold('Odpovědná osoba:', 18)] }),
+      new D.Paragraph({ children: [normal(f.odpovedna || '—', 18)] }),
+    ];
+    var foto;
+    if (f.foto) {
+      try {
+        var imgData = base64ToUint8Array(f.foto);
+        var mt = f.foto.includes('image/png') ? 'png' : 'jpg';
+        foto = [new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.ImageRun({ data: imgData, transformation: { width: 160, height: 120 }, type: mt })] })];
+      } catch(e) { foto = [new D.Paragraph({ children: [normal('(foto nelze načíst)', 16)] })]; }
+    } else { foto = [new D.Paragraph({ children: [normal('', 16)] })]; }
+
+    return new D.TableRow({ children: [
+      new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(String(i+1), 20)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), verticalAlign: D.VerticalAlign.TOP, shading: { type: D.ShadingType.SOLID, fill: 'FAFAFA' } }),
+      new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: content, borders: bb(thin), verticalAlign: D.VerticalAlign.TOP }),
+      new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: foto, borders: bb(thin), verticalAlign: D.VerticalAlign.CENTER }),
+    ]});
+  }));
+
+  var findingsTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows: [fHeader].concat(fRows) });
+
+  var doc = new D.Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children: [
+    headerTable,
+    new D.Paragraph({ spacing: { before: 160, after: 0 } }),
+    infoTable,
+    new D.Paragraph({ spacing: { before: 200, after: 0 } }),
+    noticePara,
+    findingsTable,
+  ]}]});
+
+  var blob = await D.Packer.toBlob(doc);
+  var fname = ('BOZP_' + (h.pracoviste || 'provozka') + '_' + document.getElementById('h-datum').value + '.docx').replace(/[^a-zA-Z0-9.\-_]/g, '_');
+
+  if (mode === 'share') {
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], fname)] })) {
+      try {
+        await navigator.share({ files: [new File([blob], fname, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })], title: fname });
+        showToast('✅ Sdílení spuštěno!');
+      } catch(e) { if (e.name !== 'AbortError') showToast('⚠ Sdílení selhalo, zkus jiný způsob.'); }
+    } else { showToast('⚠ Share Sheet není k dispozici.'); }
+  } else if (mode === 'open') {
+    window.open(URL.createObjectURL(blob), '_blank');
+    showToast('📄 Otevřeno — ulož přes sdílení v Safari');
+  } else {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 10000);
+    showToast('✅ Staženo!');
+  }
+}
+
+// INIT — načti uložená data, nebo nastav dnešní datum
+loadSaved();
+if (!document.getElementById('h-datum').value) {
+  document.getElementById('h-datum').value = new Date().toISOString().split('T')[0];
+}
+renderFindings();
+if (findings.length > 0) showToast('↩️ Načtena rozdělaná pochůzka (' + findings.length + ' nálezů)');
+</script>
+<!-- docx načten PO main scriptu — chyba při načítání CDN nerozbije UI -->
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.min.js"></script>
+</body>
+</html>
