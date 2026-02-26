@@ -121,10 +121,7 @@
 
   .findings-list { display: flex; flex-direction: column; gap: 12px; }
   .finding-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .finding-card[data-priority="vysoka"] { border-left: 3px solid var(--red); }
-  .finding-card[data-priority="stredni"] { border-left: 3px solid var(--yellow); }
-  .finding-card[data-priority="nizka"] { border-left: 3px solid var(--green); }
-
+  
   .finding-header {
     display: flex; align-items: center; padding: 12px 14px; gap: 10px;
     cursor: pointer; user-select: none; min-height: 56px; touch-action: manipulation;
@@ -299,8 +296,8 @@ function save() {
     var header = {};
     HEADER_FIELDS.forEach(function(id) { header[id] = document.getElementById(id).value; });
     localStorage.setItem('bozp_header', JSON.stringify(header));
-    // Přidali jsme ukládání rozměrů fotky
-    var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, priorita: f.priorita, fotoName: f.fotoName, fotoW: f.fotoW, fotoH: f.fotoH }; });
+    // Priorita odstraněna
+    var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, fotoName: f.fotoName, fotoW: f.fotoW, fotoH: f.fotoH }; });
     localStorage.setItem('bozp_findings', JSON.stringify(lean));
     findings.forEach(function(f, i) {
       if (f.foto) localStorage.setItem('bozp_foto_' + i, f.foto);
@@ -377,7 +374,7 @@ HEADER_FIELDS.forEach(function(id) {
 });
 
 document.getElementById('btn-add-finding').addEventListener('click', function() {
-  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', priorita: 'stredni', foto: null, fotoName: '', fotoW: 0, fotoH: 0 });
+  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', foto: null, fotoName: '', fotoW: 0, fotoH: 0 });
   renderFindings();
   setTimeout(function() {
     var body = document.getElementById('body-' + (findings.length - 1));
@@ -402,7 +399,6 @@ function buildCard(i) {
   var card = document.createElement('div');
   card.className = 'finding-card';
   card.setAttribute('data-idx', i);
-  card.setAttribute('data-priority', f.priorita);
 
   var header = document.createElement('div');
   header.className = 'finding-header';
@@ -456,26 +452,7 @@ function buildCard(i) {
   fOsoba.appendChild(iOsoba);
   body.appendChild(fOsoba);
 
-  var fPrio = document.createElement('div');
-  fPrio.className = 'field';
-  var lPrio = document.createElement('label');
-  lPrio.textContent = 'Priorita';
-  var sel = document.createElement('select');
-  [['nizka','🟢 Nízká'],['stredni','🟡 Střední'],['vysoka','🔴 Vysoká']].forEach(function(o) {
-    var opt = document.createElement('option');
-    opt.value = o[0]; opt.textContent = o[1];
-    if (o[0] === f.priorita) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  sel.addEventListener('change', function() {
-    findings[i].priorita = this.value;
-    var c = document.querySelector('[data-idx="' + i + '"]');
-    if (c) c.setAttribute('data-priority', this.value);
-    save();
-  });
-  fPrio.appendChild(lPrio);
-  fPrio.appendChild(sel);
-  body.appendChild(fPrio);
+  // ZDE BYL KÓD PRO PRIORITU - ODSTRANĚNO
 
   body.appendChild(makePhotoField(i, f));
 
@@ -514,7 +491,6 @@ function makeTA(labelText, key, idx, value, placeholder) {
   return wrap;
 }
 
-// ── VYLEPŠENÉ ZPRACOVÁNÍ FOTEK (KOMPRESE + OPRAVA OTOČENÍ) ──
 function makePhotoField(idx, f) {
   var wrap = document.createElement('div');
   wrap.className = 'field';
@@ -552,11 +528,8 @@ function makePhotoField(idx, f) {
     reader.onload = function(e) {
       var img = new Image();
       img.onload = function() {
-        // Vytvoříme plátno pro kompresi a opravu otočení
         var canvas = document.createElement('canvas');
         var ctx = canvas.getContext('2d');
-        
-        // Maximální velikost fotky (800px je bohatě stačí pro Word)
         var MAX_DIM = 800;
         var width = img.width;
         var height = img.height;
@@ -575,11 +548,7 @@ function makePhotoField(idx, f) {
         
         canvas.width = width;
         canvas.height = height;
-        
-        // Vykreslení do plátna (zde Safari automaticky srovná EXIF otočení)
         ctx.drawImage(img, 0, 0, width, height);
-        
-        // Komprese do formátu JPEG, kvalita 70%
         var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
         
         findings[idx].foto = dataUrl;
@@ -744,19 +713,16 @@ async function exportDocx(mode) {
     if (f.foto) {
       try {
         var imgData = base64ToUint8Array(f.foto);
-        var mt = 'jpg'; // Protože komprimujeme do JPEGu, je to vždy jpg
+        var mt = 'jpg';
         
-        // Dynamický výpočet proporcí obrázku (aby nebyl spláclý)
         var outW = 200;
         var outH = 150;
         if (f.fotoW && f.fotoH) {
             var ratio = f.fotoW / f.fotoH;
             if (ratio < 1) {
-                // Fotka na výšku
                 outH = 180;
                 outW = outH * ratio;
             } else {
-                // Fotka na šířku
                 outW = 200;
                 outH = outW / ratio;
             }
