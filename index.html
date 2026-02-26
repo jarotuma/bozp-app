@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>BOZP Pochůzka</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 
 <style>
   :root {
@@ -76,7 +76,7 @@
 
   .field { margin-bottom: 12px; }
   .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 5px; }
-  .field input, .field textarea, .field select {
+  .field input:not([type="checkbox"]), .field textarea, .field select {
     width: 100%; background: var(--surface); border: 1px solid var(--border);
     border-radius: 6px; color: var(--text); font-family: 'Barlow', sans-serif;
     font-size: 15px; padding: 10px 12px; outline: none; -webkit-appearance: none;
@@ -86,6 +86,18 @@
   .field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
   select option { background: var(--dark); }
 
+  /* NOVÉ STYLY PRO CHECKBOXY JMEN */
+  .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+  .checkbox-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 12px; border-radius: 6px; cursor: pointer;
+  }
+  .checkbox-row input[type="checkbox"] {
+    width: 20px; height: 20px; accent-color: var(--orange);
+  }
+  .checkbox-text { font-size: 15px; color: var(--text); }
+  
   button { -webkit-appearance: none; touch-action: manipulation; cursor: pointer; min-height: 44px; }
 
   .btn {
@@ -197,7 +209,22 @@
   <div class="field"><label>Datum prověrky</label><input type="date" id="h-datum"></div>
   <div class="section-label">Pracoviště a účastníci</div>
   <div class="field"><label>Pracoviště</label><input type="text" id="h-pracoviste" placeholder="např. Tažírna, Sklad A…"></div>
-  <div class="field"><label>Kontrolu provedl</label><input type="text" id="h-provedl" placeholder="Jméno a pozice"></div>
+
+  <div class="field">
+    <label>Kontrolu provedl (vyber jednoho nebo oba)</label>
+    <div class="checkbox-group">
+        <label class="checkbox-row">
+            <input type="checkbox" class="inspector-check" value="Jaromír Tůma (č.o.: ROVS/1487/PREV/2023)">
+            <span class="checkbox-text">Jaromír Tůma</span>
+        </label>
+        <label class="checkbox-row">
+            <input type="checkbox" class="inspector-check" value="Ilona Adámková (č.o.: ROVS/2592/PREV/2024)">
+            <span class="checkbox-text">Ilona Adámková</span>
+        </label>
+    </div>
+    <input type="hidden" id="h-provedl">
+  </div>
+
   <div class="field"><label>Za vedení firmy</label><input type="text" id="h-vedeni" placeholder="Jméno a pozice"></div>
   <div class="field"><label>Vedoucí pracoviště</label><input type="text" id="h-vedouci" placeholder="Jméno"></div>
   <div class="field"><label>Za OS KOVO</label><input type="text" id="h-kovo" placeholder="Jméno"></div>
@@ -242,7 +269,24 @@
 
 <script>
 var findings = [];
+// h-provedl je nyní skryté pole, ale stále ho chceme ukládat
 var HEADER_FIELDS = ['h-cislo','h-datum','h-pracoviste','h-provedl','h-vedeni','h-vedouci','h-kovo'];
+
+// ── LOGIKA PRO CHECKBOXY INSPEKTORŮ ──
+var inspectorChecks = document.querySelectorAll('.inspector-check');
+inspectorChecks.forEach(function(chk) {
+    chk.addEventListener('change', updateInspectors);
+});
+
+function updateInspectors() {
+    var selected = [];
+    inspectorChecks.forEach(function(chk) {
+        if (chk.checked) selected.push(chk.value);
+    });
+    // Spojíme jména spojkou " a "
+    document.getElementById('h-provedl').value = selected.join(' a ');
+    save();
+}
 
 // ── AUTOSAVE ──
 function save() {
@@ -265,7 +309,16 @@ function loadSaved() {
     var headerRaw = localStorage.getItem('bozp_header');
     if (headerRaw) {
       var header = JSON.parse(headerRaw);
-      HEADER_FIELDS.forEach(function(id) { if (header[id]) document.getElementById(id).value = header[id]; });
+      HEADER_FIELDS.forEach(function(id) { 
+          if (header[id]) document.getElementById(id).value = header[id]; 
+      });
+      // Obnovit stav checkboxů podle uloženého textu
+      var savedProvedl = header['h-provedl'] || '';
+      inspectorChecks.forEach(function(chk) {
+          if (savedProvedl.includes(chk.value)) {
+              chk.checked = true;
+          }
+      });
     }
     var findingsRaw = localStorage.getItem('bozp_findings');
     if (findingsRaw) {
@@ -313,8 +366,11 @@ document.getElementById('tab-2').addEventListener('click', function() { switchTa
 document.getElementById('btn-to-findings').addEventListener('click', function() { switchTab(1); });
 
 HEADER_FIELDS.forEach(function(id) {
-  document.getElementById(id).addEventListener('input', function() { save(); });
-  document.getElementById(id).addEventListener('change', function() { save(); });
+  // h-provedl řešíme zvlášť přes checkboxy
+  if (id !== 'h-provedl') {
+      document.getElementById(id).addEventListener('input', function() { save(); });
+      document.getElementById(id).addEventListener('change', function() { save(); });
+  }
 });
 
 document.getElementById('btn-add-finding').addEventListener('click', function() {
@@ -540,7 +596,10 @@ function updateExportScreen() {
   document.getElementById('s-cislo').textContent = document.getElementById('h-cislo').value || '—';
   document.getElementById('s-datum').textContent = formatDate(document.getElementById('h-datum').value) || '—';
   document.getElementById('s-pracoviste').textContent = document.getElementById('h-pracoviste').value || '—';
-  document.getElementById('s-provedl').textContent = document.getElementById('h-provedl').value || '—';
+  
+  // Zobrazit oba vybrané
+  var selectedInspectors = document.getElementById('h-provedl').value;
+  document.getElementById('s-provedl').textContent = selectedInspectors || '—';
 }
 
 document.getElementById('btn-export-share').addEventListener('click', function() { exportDocx('share'); });
@@ -554,6 +613,10 @@ document.getElementById('btn-reset').addEventListener('click', function() {
   ['h-cislo','h-pracoviste','h-provedl','h-vedeni','h-vedouci','h-kovo'].forEach(function(id) {
     document.getElementById(id).value = '';
   });
+  
+  // Reset checkboxů
+  inspectorChecks.forEach(function(c) { c.checked = false; });
+  
   document.getElementById('h-datum').value = new Date().toISOString().split('T')[0];
   switchTab(0);
   showToast('🔄 Pochůzka resetována');
@@ -694,6 +757,5 @@ if (!document.getElementById('h-datum').value) {
 renderFindings();
 if (findings.length > 0) showToast('↩️ Načtena rozdělaná pochůzka (' + findings.length + ' nálezů)');
 </script>
-
 </body>
 </html>
