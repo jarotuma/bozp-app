@@ -250,17 +250,14 @@ function save() {
     var header = {};
     HEADER_FIELDS.forEach(function(id) { header[id] = document.getElementById(id).value; });
     localStorage.setItem('bozp_header', JSON.stringify(header));
-    // Findings bez foto pro rychlost, foto zvlášť
     var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, priorita: f.priorita, fotoName: f.fotoName }; });
     localStorage.setItem('bozp_findings', JSON.stringify(lean));
-    // Foto zvlášť (může být velké)
     findings.forEach(function(f, i) {
       if (f.foto) localStorage.setItem('bozp_foto_' + i, f.foto);
       else localStorage.removeItem('bozp_foto_' + i);
     });
-    // Smazat přebytečná foto
     for (var i = findings.length; i < 50; i++) localStorage.removeItem('bozp_foto_' + i);
-  } catch(e) { /* localStorage může být plný kvůli fotkám */ }
+  } catch(e) { }
 }
 
 function loadSaved() {
@@ -315,13 +312,11 @@ document.getElementById('tab-1').addEventListener('click', function() { switchTa
 document.getElementById('tab-2').addEventListener('click', function() { switchTab(2); });
 document.getElementById('btn-to-findings').addEventListener('click', function() { switchTab(1); });
 
-// Autosave hlavičkových polí
 HEADER_FIELDS.forEach(function(id) {
   document.getElementById(id).addEventListener('input', function() { save(); });
   document.getElementById(id).addEventListener('change', function() { save(); });
 });
 
-// ADD FINDING
 document.getElementById('btn-add-finding').addEventListener('click', function() {
   findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', priorita: 'stredni', foto: null, fotoName: '' });
   renderFindings();
@@ -350,7 +345,6 @@ function buildCard(i) {
   card.setAttribute('data-idx', i);
   card.setAttribute('data-priority', f.priorita);
 
-  // --- HEADER ---
   var header = document.createElement('div');
   header.className = 'finding-header';
 
@@ -376,26 +370,20 @@ function buildCard(i) {
   header.appendChild(icons);
   header.appendChild(chevron);
 
-  (function(idx) {
-    header.addEventListener('click', function() {
-      var b = document.getElementById('body-' + idx);
-      if (b) b.classList.toggle('open');
-    });
-  })(i);
+  header.addEventListener('click', function() {
+    var b = document.getElementById('body-' + i);
+    if (b) b.classList.toggle('open');
+  });
 
   card.appendChild(header);
 
-  // --- BODY ---
   var body = document.createElement('div');
   body.className = 'finding-body';
   body.id = 'body-' + i;
 
-  // Zjištění
   body.appendChild(makeTA('Zjištění', 'zjisteni', i, f.zjisteni, 'Popis nálezu…'));
-  // Doporučení
   body.appendChild(makeTA('Doporučení', 'doporuceni', i, f.doporuceni, 'Návrh opatření…'));
 
-  // Odpovědná osoba
   var fOsoba = document.createElement('div');
   fOsoba.className = 'field';
   var lOsoba = document.createElement('label');
@@ -404,14 +392,11 @@ function buildCard(i) {
   iOsoba.type = 'text';
   iOsoba.value = f.odpovedna;
   iOsoba.placeholder = 'Jméno / zkratka';
-  (function(idx) {
-    iOsoba.addEventListener('input', function() { findings[idx].odpovedna = this.value; save(); });
-  })(i);
+  iOsoba.addEventListener('input', function() { findings[i].odpovedna = this.value; save(); });
   fOsoba.appendChild(lOsoba);
   fOsoba.appendChild(iOsoba);
   body.appendChild(fOsoba);
 
-  // Priorita
   var fPrio = document.createElement('div');
   fPrio.className = 'field';
   var lPrio = document.createElement('label');
@@ -423,35 +408,29 @@ function buildCard(i) {
     if (o[0] === f.priorita) opt.selected = true;
     sel.appendChild(opt);
   });
-  (function(idx) {
-    sel.addEventListener('change', function() {
-      findings[idx].priorita = this.value;
-      var card = document.querySelector('[data-idx="' + idx + '"]');
-      if (card) card.setAttribute('data-priority', this.value);
-      save();
-    });
-  })(i);
+  sel.addEventListener('change', function() {
+    findings[i].priorita = this.value;
+    var c = document.querySelector('[data-idx="' + i + '"]');
+    if (c) c.setAttribute('data-priority', this.value);
+    save();
+  });
   fPrio.appendChild(lPrio);
   fPrio.appendChild(sel);
   body.appendChild(fPrio);
 
-  // Foto
   body.appendChild(makePhotoField(i, f));
 
-  // Delete
   var delBtn = document.createElement('button');
   delBtn.className = 'btn btn-danger btn-sm';
   delBtn.type = 'button';
   delBtn.style.marginTop = '8px';
   delBtn.textContent = '🗑 Smazat tento nález';
-  (function(idx) {
-    delBtn.addEventListener('click', function() {
-      if (confirm('Smazat nález č. ' + (idx + 1) + '?')) {
-        findings.splice(idx, 1);
-        renderFindings();
-      }
-    });
-  })(i);
+  delBtn.addEventListener('click', function() {
+    if (confirm('Smazat nález č. ' + (i + 1) + '?')) {
+      findings.splice(i, 1);
+      renderFindings();
+    }
+  });
   body.appendChild(delBtn);
 
   card.appendChild(body);
@@ -466,9 +445,7 @@ function makeTA(labelText, key, idx, value, placeholder) {
   var ta = document.createElement('textarea');
   ta.value = value;
   ta.placeholder = placeholder;
-  (function(k, i) {
-    ta.addEventListener('input', function() { findings[i][k] = this.value; save(); });
-  })(key, idx);
+  ta.addEventListener('input', function() { findings[idx][key] = this.value; save(); });
   var tip = document.createElement('div');
   tip.className = 'mic-tip';
   tip.innerHTML = '<span style="font-size:15px">🎙</span>&nbsp;Klepni do pole → mikrofon na klávesnici';
@@ -504,24 +481,22 @@ function makePhotoField(idx, f) {
   fileInput.accept = 'image/*';
   fileInput.setAttribute('capture', 'environment');
   fileInput.id = 'photo-' + idx;
-  (function(i) {
-    fileInput.addEventListener('change', function() {
-      var file = this.files[0];
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        findings[i].foto = e.target.result;
-        findings[i].fotoName = file.name;
-        renderFindings();
-        setTimeout(function() {
-          var b = document.getElementById('body-' + i);
-          if (b) b.classList.add('open');
-        }, 60);
-        showToast('📷 Fotka přidána!');
-      };
-      reader.readAsDataURL(file);
-    });
-  })(idx);
+  fileInput.addEventListener('change', function() {
+    var file = this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      findings[idx].foto = e.target.result;
+      findings[idx].fotoName = file.name;
+      renderFindings();
+      setTimeout(function() {
+        var b = document.getElementById('body-' + idx);
+        if (b) b.classList.add('open');
+      }, 60);
+      showToast('📷 Fotka přidána!');
+    };
+    reader.readAsDataURL(file);
+  });
 
   var controls = document.createElement('div');
   controls.className = 'photo-controls';
@@ -531,11 +506,7 @@ function makePhotoField(idx, f) {
   photoBtn.className = 'btn btn-secondary btn-sm';
   photoBtn.type = 'button';
   photoBtn.textContent = f.foto ? '📷 Vyměnit foto' : '📷 Pořídit / vybrat foto';
-  (function(i) {
-    photoBtn.addEventListener('click', function() {
-      document.getElementById('photo-' + i).click();
-    });
-  })(idx);
+  photoBtn.addEventListener('click', function() { document.getElementById('photo-' + idx).click(); });
   controls.appendChild(photoBtn);
 
   if (f.foto) {
@@ -543,17 +514,15 @@ function makePhotoField(idx, f) {
     removeBtn.className = 'btn btn-secondary btn-sm';
     removeBtn.type = 'button';
     removeBtn.textContent = '🗑 Smazat foto';
-    (function(i) {
-      removeBtn.addEventListener('click', function() {
-        findings[i].foto = null;
-        findings[i].fotoName = '';
-        renderFindings();
-        setTimeout(function() {
-          var b = document.getElementById('body-' + i);
-          if (b) b.classList.add('open');
-        }, 60);
-      });
-    })(idx);
+    removeBtn.addEventListener('click', function() {
+      findings[idx].foto = null;
+      findings[idx].fotoName = '';
+      renderFindings();
+      setTimeout(function() {
+        var b = document.getElementById('body-' + idx);
+        if (b) b.classList.add('open');
+      }, 60);
+    });
     controls.appendChild(removeBtn);
   }
 
@@ -563,7 +532,6 @@ function makePhotoField(idx, f) {
   return wrap;
 }
 
-// EXPORT SCREEN
 function updateExportScreen() {
   var withPhotos = 0;
   for (var i = 0; i < findings.length; i++) { if (findings[i].foto) withPhotos++; }
@@ -591,7 +559,6 @@ document.getElementById('btn-reset').addEventListener('click', function() {
   showToast('🔄 Pochůzka resetována');
 });
 
-// DOCX EXPORT
 function base64ToUint8Array(b64) {
   var raw = atob(b64.split(',')[1]);
   var arr = new Uint8Array(raw.length);
@@ -615,45 +582,61 @@ async function exportDocx(mode) {
     kovo: document.getElementById('h-kovo').value,
   };
 
-  function bold(text, size) { return new D.TextRun({ text: text || '', bold: true, size: size || 20 }); }
-  function normal(text, size) { return new D.TextRun({ text: text || '', size: size || 18 }); }
+  // --- NASTAVENÍ PÍSMA (Verdana, 11pt) ---
+  // Velikost v docx se udává v půlbodech (half-points), proto 11pt = 22
+  function bold(text, size) {
+    return new D.TextRun({ text: text || '', bold: true, font: "Verdana", size: size || 22 });
+  }
+  function normal(text, size) {
+    return new D.TextRun({ text: text || '', font: "Verdana", size: size || 22 });
+  }
+
+  // Barvy ohraničení a pozadí
   var thin = { style: D.BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
-  var orange = { style: D.BorderStyle.SINGLE, size: 8, color: 'F4620A' };
+  var orangeBorder = { style: D.BorderStyle.SINGLE, size: 8, color: 'F4620A' };
+  // Světle šedá pro pozadí (místo černé)
+  var grayFill = 'E0E0E0';
+  var lightFill = 'F9F9F9';
+
   function bb(b) { return { top: b, bottom: b, left: b, right: b }; }
 
+  // HLAVNÍ TABULKA
   var headerTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows: [
     new D.TableRow({ children: [
-      new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('BEKAERT Petrovice s.r.o.', 18)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: 'F5F5F5' }, verticalAlign: D.VerticalAlign.CENTER }),
-      new D.TableCell({ width: { size: 55, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('ZÁZNAM O PROVEDENÉ PROVĚRCE BOZP', 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: '222222' }, verticalAlign: D.VerticalAlign.CENTER }),
-      new D.TableCell({ width: { size: 15, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('Číslo prověrky:', 16)] }), new D.Paragraph({ children: [normal(h.cislo, 16)] }), new D.Paragraph({ children: [bold('Datum prověrky:', 16)] }), new D.Paragraph({ children: [normal(h.datum, 16)] })], borders: bb(thin) }),
+      new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('BEKAERT Petrovice s.r.o.', 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+      new D.TableCell({ width: { size: 55, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('ZÁZNAM O PROVEDENÉ PROVĚRCE BOZP', 24)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+      new D.TableCell({ width: { size: 15, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('Číslo prověrky:', 18)] }), new D.Paragraph({ children: [normal(h.cislo, 18)] }), new D.Paragraph({ children: [bold('Datum prověrky:', 18)] }), new D.Paragraph({ children: [normal(h.datum, 18)] })], borders: bb(thin) }),
     ]})
   ]});
 
+  // INFORMAČNÍ TABULKA
   var infoTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows:
     [['Pracoviště:', h.pracoviste],['Kontrolu provedl:', h.provedl],['Za vedení firmy:', h.vedeni],['Vedoucí pracoviště:', h.vedouci],['Za OS KOVO:', h.kovo]].map(function(r) {
       return new D.TableRow({ children: [
-        new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(r[0], 18)] })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: 'F0F0F0' } }),
-        new D.TableCell({ width: { size: 70, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [normal(r[1], 18)] })], borders: bb(thin) }),
+        // Levý sloupec šedý, pravý bílý
+        new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(r[0])] })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: grayFill } }),
+        new D.TableCell({ width: { size: 70, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [normal(r[1])] })], borders: bb(thin) }),
       ]});
     })
   });
 
-  var noticePara = new D.Paragraph({ children: [bold('ZA ODSTRANĚNÍ NALEZENÝCH NESHOD ODPOVÍDÁ VEDOUCÍ PRACOVIŠTĚ.', 20)], alignment: D.AlignmentType.CENTER, spacing: { before: 200, after: 200 } });
+  var noticePara = new D.Paragraph({ children: [bold('ZA ODSTRANĚNÍ NALEZENÝCH NESHOD ODPOVÍDÁ VEDOUCÍ PRACOVIŠTĚ.', 22)], alignment: D.AlignmentType.CENTER, spacing: { before: 200, after: 200 } });
 
+  // TABULKA NÁLEZŮ - Hlavička
   var fHeader = new D.TableRow({ tableHeader: true, children: [
-    new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('č.', 18)], alignment: D.AlignmentType.CENTER })], borders: bb(orange), shading: { type: D.ShadingType.SOLID, fill: 'F4620A' }, verticalAlign: D.VerticalAlign.CENTER }),
-    new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('NÁLEZ', 18)], alignment: D.AlignmentType.CENTER })], borders: bb(orange), shading: { type: D.ShadingType.SOLID, fill: 'F4620A' }, verticalAlign: D.VerticalAlign.CENTER }),
-    new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('FOTODOKUMENTACE', 18)], alignment: D.AlignmentType.CENTER })], borders: bb(orange), shading: { type: D.ShadingType.SOLID, fill: 'F4620A' }, verticalAlign: D.VerticalAlign.CENTER }),
+    new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('č.', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+    new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('NÁLEZ', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+    new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('FOTODOKUMENTACE', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
   ]});
 
   var fRows = await Promise.all(findings.map(async function(f, i) {
     var content = [
-      new D.Paragraph({ children: [bold('Zjištění:', 18)], spacing: { before: 40 } }),
-      new D.Paragraph({ children: [normal(f.zjisteni || '—', 18)], spacing: { after: 80 } }),
-      new D.Paragraph({ children: [bold('Doporučení:', 18)] }),
-      new D.Paragraph({ children: [normal(f.doporuceni || '—', 18)], spacing: { after: 80 } }),
-      new D.Paragraph({ children: [bold('Odpovědná osoba:', 18)] }),
-      new D.Paragraph({ children: [normal(f.odpovedna || '—', 18)] }),
+      new D.Paragraph({ children: [bold('Zjištění:')], spacing: { before: 40 } }),
+      new D.Paragraph({ children: [normal(f.zjisteni || '—')], spacing: { after: 80 } }),
+      new D.Paragraph({ children: [bold('Doporučení:')] }),
+      new D.Paragraph({ children: [normal(f.doporuceni || '—')], spacing: { after: 80 } }),
+      new D.Paragraph({ children: [bold('Odpovědná osoba:')] }),
+      new D.Paragraph({ children: [normal(f.odpovedna || '—')] }),
     ];
     var foto;
     if (f.foto) {
@@ -661,11 +644,12 @@ async function exportDocx(mode) {
         var imgData = base64ToUint8Array(f.foto);
         var mt = f.foto.includes('image/png') ? 'png' : 'jpg';
         foto = [new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.ImageRun({ data: imgData, transformation: { width: 160, height: 120 }, type: mt })] })];
-      } catch(e) { foto = [new D.Paragraph({ children: [normal('(foto nelze načíst)', 16)] })]; }
-    } else { foto = [new D.Paragraph({ children: [normal('', 16)] })]; }
+      } catch(e) { foto = [new D.Paragraph({ children: [normal('(foto nelze načíst)')] })]; }
+    } else { foto = [new D.Paragraph({ children: [normal('')] })]; }
 
     return new D.TableRow({ children: [
-      new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(String(i+1), 20)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), verticalAlign: D.VerticalAlign.TOP, shading: { type: D.ShadingType.SOLID, fill: 'FAFAFA' } }),
+      // Číslo nálezu má také šedé pozadí
+      new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(String(i+1), 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), verticalAlign: D.VerticalAlign.TOP, shading: { type: D.ShadingType.SOLID, fill: grayFill } }),
       new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: content, borders: bb(thin), verticalAlign: D.VerticalAlign.TOP }),
       new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: foto, borders: bb(thin), verticalAlign: D.VerticalAlign.CENTER }),
     ]});
@@ -705,7 +689,6 @@ async function exportDocx(mode) {
   }
 }
 
-// INIT — načti uložená data, nebo nastav dnešní datum
 loadSaved();
 if (!document.getElementById('h-datum').value) {
   document.getElementById('h-datum').value = new Date().toISOString().split('T')[0];
