@@ -582,29 +582,27 @@ async function exportDocx(mode) {
     kovo: document.getElementById('h-kovo').value,
   };
 
-  // --- NASTAVENÍ PÍSMA (Verdana, 11pt) ---
-  // Velikost v docx se udává v půlbodech (half-points), proto 11pt = 22
+  // --- NASTAVENÍ PÍSMA (Verdana, 11pt) A ČERNÉ BARVY ---
   function bold(text, size) {
-    return new D.TextRun({ text: text || '', bold: true, font: "Verdana", size: size || 22 });
+    return new D.TextRun({ text: text || '', bold: true, font: "Verdana", size: size || 22, color: "000000" });
   }
   function normal(text, size) {
-    return new D.TextRun({ text: text || '', font: "Verdana", size: size || 22 });
+    return new D.TextRun({ text: text || '', font: "Verdana", size: size || 22, color: "000000" });
   }
 
   // Barvy ohraničení a pozadí
   var thin = { style: D.BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
   var orangeBorder = { style: D.BorderStyle.SINGLE, size: 8, color: 'F4620A' };
-  // Světle šedá pro pozadí (místo černé)
+  // Světle šedá pro pozadí
   var grayFill = 'E0E0E0';
-  var lightFill = 'F9F9F9';
 
   function bb(b) { return { top: b, bottom: b, left: b, right: b }; }
 
   // HLAVNÍ TABULKA
   var headerTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows: [
     new D.TableRow({ children: [
-      new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('BEKAERT Petrovice s.r.o.', 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
-      new D.TableCell({ width: { size: 55, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('ZÁZNAM O PROVEDENÉ PROVĚRCE BOZP', 24)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+      new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('BEKAERT Petrovice s.r.o.', 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+      new D.TableCell({ width: { size: 55, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('ZÁZNAM O PROVEDENÉ PROVĚRCE BOZP', 24)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
       new D.TableCell({ width: { size: 15, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('Číslo prověrky:', 18)] }), new D.Paragraph({ children: [normal(h.cislo, 18)] }), new D.Paragraph({ children: [bold('Datum prověrky:', 18)] }), new D.Paragraph({ children: [normal(h.datum, 18)] })], borders: bb(thin) }),
     ]})
   ]});
@@ -614,7 +612,7 @@ async function exportDocx(mode) {
     [['Pracoviště:', h.pracoviste],['Kontrolu provedl:', h.provedl],['Za vedení firmy:', h.vedeni],['Vedoucí pracoviště:', h.vedouci],['Za OS KOVO:', h.kovo]].map(function(r) {
       return new D.TableRow({ children: [
         // Levý sloupec šedý, pravý bílý
-        new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(r[0])] })], borders: bb(thin), shading: { type: D.ShadingType.SOLID, fill: grayFill } }),
+        new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(r[0])] })], borders: bb(thin), shading: { fill: grayFill } }),
         new D.TableCell({ width: { size: 70, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [normal(r[1])] })], borders: bb(thin) }),
       ]});
     })
@@ -624,9 +622,9 @@ async function exportDocx(mode) {
 
   // TABULKA NÁLEZŮ - Hlavička
   var fHeader = new D.TableRow({ tableHeader: true, children: [
-    new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('č.', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
-    new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('NÁLEZ', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
-    new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('FOTODOKUMENTACE', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { type: D.ShadingType.SOLID, fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+    new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('č.', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+    new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('NÁLEZ', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
+    new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('FOTODOKUMENTACE', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
   ]});
 
   var fRows = await Promise.all(findings.map(async function(f, i) {
@@ -649,7 +647,7 @@ async function exportDocx(mode) {
 
     return new D.TableRow({ children: [
       // Číslo nálezu má také šedé pozadí
-      new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(String(i+1), 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), verticalAlign: D.VerticalAlign.TOP, shading: { type: D.ShadingType.SOLID, fill: grayFill } }),
+      new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(String(i+1), 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), verticalAlign: D.VerticalAlign.TOP, shading: { fill: grayFill } }),
       new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: content, borders: bb(thin), verticalAlign: D.VerticalAlign.TOP }),
       new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: foto, borders: bb(thin), verticalAlign: D.VerticalAlign.CENTER }),
     ]});
@@ -696,5 +694,6 @@ if (!document.getElementById('h-datum').value) {
 renderFindings();
 if (findings.length > 0) showToast('↩️ Načtena rozdělaná pochůzka (' + findings.length + ' nálezů)');
 </script>
+
 </body>
 </html>
