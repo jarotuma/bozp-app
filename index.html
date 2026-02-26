@@ -299,7 +299,8 @@ function save() {
     var header = {};
     HEADER_FIELDS.forEach(function(id) { header[id] = document.getElementById(id).value; });
     localStorage.setItem('bozp_header', JSON.stringify(header));
-    var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, priorita: f.priorita, fotoName: f.fotoName }; });
+    // Přidali jsme ukládání rozměrů fotky
+    var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, priorita: f.priorita, fotoName: f.fotoName, fotoW: f.fotoW, fotoH: f.fotoH }; });
     localStorage.setItem('bozp_findings', JSON.stringify(lean));
     findings.forEach(function(f, i) {
       if (f.foto) localStorage.setItem('bozp_foto_' + i, f.foto);
@@ -376,7 +377,7 @@ HEADER_FIELDS.forEach(function(id) {
 });
 
 document.getElementById('btn-add-finding').addEventListener('click', function() {
-  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', priorita: 'stredni', foto: null, fotoName: '' });
+  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', priorita: 'stredni', foto: null, fotoName: '', fotoW: 0, fotoH: 0 });
   renderFindings();
   setTimeout(function() {
     var body = document.getElementById('body-' + (findings.length - 1));
@@ -513,6 +514,7 @@ function makeTA(labelText, key, idx, value, placeholder) {
   return wrap;
 }
 
+// ── VYLEPŠENÉ ZPRACOVÁNÍ FOTEK (KOMPRESE + OPRAVA OTOČENÍ) ──
 function makePhotoField(idx, f) {
   var wrap = document.createElement('div');
   wrap.className = 'field';
@@ -522,11 +524,11 @@ function makePhotoField(idx, f) {
   area.className = 'photo-area';
 
   if (f.foto) {
-    var img = document.createElement('img');
-    img.className = 'photo-preview';
-    img.src = f.foto;
-    img.alt = 'foto';
-    area.appendChild(img);
+    var imgPreview = document.createElement('img');
+    imgPreview.className = 'photo-preview';
+    imgPreview.src = f.foto;
+    imgPreview.alt = 'foto';
+    area.appendChild(imgPreview);
   } else {
     var ph = document.createElement('div');
     ph.className = 'photo-placeholder';
@@ -539,19 +541,60 @@ function makePhotoField(idx, f) {
   fileInput.accept = 'image/*';
   fileInput.setAttribute('capture', 'environment');
   fileInput.id = 'photo-' + idx;
+  
   fileInput.addEventListener('change', function() {
     var file = this.files[0];
     if (!file) return;
+    
+    showToast('⏳ Zpracovávám fotku...');
+    
     var reader = new FileReader();
     reader.onload = function(e) {
-      findings[idx].foto = e.target.result;
-      findings[idx].fotoName = file.name;
-      renderFindings();
-      setTimeout(function() {
-        var b = document.getElementById('body-' + idx);
-        if (b) b.classList.add('open');
-      }, 60);
-      showToast('📷 Fotka přidána!');
+      var img = new Image();
+      img.onload = function() {
+        // Vytvoříme plátno pro kompresi a opravu otočení
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+        
+        // Maximální velikost fotky (800px je bohatě stačí pro Word)
+        var MAX_DIM = 800;
+        var width = img.width;
+        var height = img.height;
+        
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height *= MAX_DIM / width;
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width *= MAX_DIM / height;
+            height = MAX_DIM;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Vykreslení do plátna (zde Safari automaticky srovná EXIF otočení)
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Komprese do formátu JPEG, kvalita 70%
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        
+        findings[idx].foto = dataUrl;
+        findings[idx].fotoName = file.name;
+        findings[idx].fotoW = width;
+        findings[idx].fotoH = height;
+        
+        renderFindings();
+        setTimeout(function() {
+          var b = document.getElementById('body-' + idx);
+          if (b) b.classList.add('open');
+        }, 60);
+        showToast('✅ Fotka vložena a zkomprimována!');
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   });
@@ -575,6 +618,8 @@ function makePhotoField(idx, f) {
     removeBtn.addEventListener('click', function() {
       findings[idx].foto = null;
       findings[idx].fotoName = '';
+      findings[idx].fotoW = 0;
+      findings[idx].fotoH = 0;
       renderFindings();
       setTimeout(function() {
         var b = document.getElementById('body-' + idx);
@@ -699,8 +744,25 @@ async function exportDocx(mode) {
     if (f.foto) {
       try {
         var imgData = base64ToUint8Array(f.foto);
-        var mt = f.foto.includes('image/png') ? 'png' : 'jpg';
-        foto = [new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.ImageRun({ data: imgData, transformation: { width: 160, height: 120 }, type: mt })] })];
+        var mt = 'jpg'; // Protože komprimujeme do JPEGu, je to vždy jpg
+        
+        // Dynamický výpočet proporcí obrázku (aby nebyl spláclý)
+        var outW = 200;
+        var outH = 150;
+        if (f.fotoW && f.fotoH) {
+            var ratio = f.fotoW / f.fotoH;
+            if (ratio < 1) {
+                // Fotka na výšku
+                outH = 180;
+                outW = outH * ratio;
+            } else {
+                // Fotka na šířku
+                outW = 200;
+                outH = outW / ratio;
+            }
+        }
+        
+        foto = [new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.ImageRun({ data: imgData, transformation: { width: outW, height: outH }, type: mt })] })];
       } catch(e) { foto = [new D.Paragraph({ children: [normal('(foto nelze načíst)')] })]; }
     } else { foto = [new D.Paragraph({ children: [normal('')] })]; }
 
