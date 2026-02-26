@@ -86,7 +86,6 @@
   .field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
   select option { background: var(--dark); }
 
-  /* NOVÉ STYLY PRO CHECKBOXY JMEN */
   .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
   .checkbox-row {
     display: flex; align-items: center; gap: 12px;
@@ -205,6 +204,15 @@
 
 <div class="screen active" id="screen-0">
   <div class="section-label">Identifikace dokumentu</div>
+  
+  <div class="field">
+    <label>Společnost</label>
+    <select id="h-firma">
+      <option value="BEKAERT Petrovice s.r.o.">BEKAERT Petrovice s.r.o.</option>
+      <option value="BEKAERT Bohumín s.r.o.">BEKAERT Bohumín s.r.o.</option>
+    </select>
+  </div>
+  
   <div class="field"><label>Číslo prověrky</label><input type="text" id="h-cislo" placeholder="např. BOZP-2025-01"></div>
   <div class="field"><label>Datum prověrky</label><input type="date" id="h-datum"></div>
   <div class="section-label">Pracoviště a účastníci</div>
@@ -252,6 +260,7 @@
     <div class="stat-box"><div class="stat-num" id="stat-photos" style="color:var(--green)">0</div><div class="stat-label">S fotodok.</div></div>
   </div>
   <div class="summary-box">
+    <div class="summary-row"><span class="summary-key">Společnost</span><span class="summary-val" id="s-firma">—</span></div>
     <div class="summary-row"><span class="summary-key">Číslo prověrky</span><span class="summary-val" id="s-cislo">—</span></div>
     <div class="summary-row"><span class="summary-key">Datum</span><span class="summary-val" id="s-datum">—</span></div>
     <div class="summary-row"><span class="summary-key">Pracoviště</span><span class="summary-val" id="s-pracoviste">—</span></div>
@@ -269,8 +278,8 @@
 
 <script>
 var findings = [];
-// h-provedl je nyní skryté pole, ale stále ho chceme ukládat
-var HEADER_FIELDS = ['h-cislo','h-datum','h-pracoviste','h-provedl','h-vedeni','h-vedouci','h-kovo'];
+// h-firma je nyní součástí HEADER_FIELDS pro ukládání a načítání
+var HEADER_FIELDS = ['h-firma','h-cislo','h-datum','h-pracoviste','h-provedl','h-vedeni','h-vedouci','h-kovo'];
 
 // ── LOGIKA PRO CHECKBOXY INSPEKTORŮ ──
 var inspectorChecks = document.querySelectorAll('.inspector-check');
@@ -593,11 +602,11 @@ function updateExportScreen() {
   for (var i = 0; i < findings.length; i++) { if (findings[i].foto) withPhotos++; }
   document.getElementById('stat-total').textContent = findings.length;
   document.getElementById('stat-photos').textContent = withPhotos;
+  document.getElementById('s-firma').textContent = document.getElementById('h-firma').value || '—';
   document.getElementById('s-cislo').textContent = document.getElementById('h-cislo').value || '—';
   document.getElementById('s-datum').textContent = formatDate(document.getElementById('h-datum').value) || '—';
   document.getElementById('s-pracoviste').textContent = document.getElementById('h-pracoviste').value || '—';
   
-  // Zobrazit oba vybrané
   var selectedInspectors = document.getElementById('h-provedl').value;
   document.getElementById('s-provedl').textContent = selectedInspectors || '—';
 }
@@ -610,6 +619,8 @@ document.getElementById('btn-reset').addEventListener('click', function() {
   findings = [];
   clearSaved();
   renderFindings();
+  
+  // Resetujeme pole kromě firmy, aby si ji to pamatovalo i pro další prověrku
   ['h-cislo','h-pracoviste','h-provedl','h-vedeni','h-vedouci','h-kovo'].forEach(function(id) {
     document.getElementById(id).value = '';
   });
@@ -636,6 +647,7 @@ async function exportDocx(mode) {
   }
   var D = docx;
   var h = {
+    firma: document.getElementById('h-firma').value,
     cislo: document.getElementById('h-cislo').value,
     datum: formatDate(document.getElementById('h-datum').value),
     pracoviste: document.getElementById('h-pracoviste').value,
@@ -656,106 +668,9 @@ async function exportDocx(mode) {
   // Barvy ohraničení a pozadí
   var thin = { style: D.BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
   var orangeBorder = { style: D.BorderStyle.SINGLE, size: 8, color: 'F4620A' };
-  // Světle šedá pro pozadí
   var grayFill = 'E0E0E0';
 
   function bb(b) { return { top: b, bottom: b, left: b, right: b }; }
 
   // HLAVNÍ TABULKA
-  var headerTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows: [
-    new D.TableRow({ children: [
-      new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('BEKAERT Petrovice s.r.o.', 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
-      new D.TableCell({ width: { size: 55, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('ZÁZNAM O PROVEDENÉ PROVĚRCE BOZP', 24)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
-      new D.TableCell({ width: { size: 15, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('Číslo prověrky:', 18)] }), new D.Paragraph({ children: [normal(h.cislo, 18)] }), new D.Paragraph({ children: [bold('Datum prověrky:', 18)] }), new D.Paragraph({ children: [normal(h.datum, 18)] })], borders: bb(thin) }),
-    ]})
-  ]});
-
-  // INFORMAČNÍ TABULKA
-  var infoTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows:
-    [['Pracoviště:', h.pracoviste],['Kontrolu provedl:', h.provedl],['Za vedení firmy:', h.vedeni],['Vedoucí pracoviště:', h.vedouci],['Za OS KOVO:', h.kovo]].map(function(r) {
-      return new D.TableRow({ children: [
-        // Levý sloupec šedý, pravý bílý
-        new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(r[0])] })], borders: bb(thin), shading: { fill: grayFill } }),
-        new D.TableCell({ width: { size: 70, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [normal(r[1])] })], borders: bb(thin) }),
-      ]});
-    })
-  });
-
-  var noticePara = new D.Paragraph({ children: [bold('ZA ODSTRANĚNÍ NALEZENÝCH NESHOD ODPOVÍDÁ VEDOUCÍ PRACOVIŠTĚ.', 22)], alignment: D.AlignmentType.CENTER, spacing: { before: 200, after: 200 } });
-
-  // TABULKA NÁLEZŮ - Hlavička
-  var fHeader = new D.TableRow({ tableHeader: true, children: [
-    new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('č.', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
-    new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('NÁLEZ', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
-    new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold('FOTODOKUMENTACE', 20)], alignment: D.AlignmentType.CENTER })], borders: bb(orangeBorder), shading: { fill: grayFill }, verticalAlign: D.VerticalAlign.CENTER }),
-  ]});
-
-  var fRows = await Promise.all(findings.map(async function(f, i) {
-    var content = [
-      new D.Paragraph({ children: [bold('Zjištění:')], spacing: { before: 40 } }),
-      new D.Paragraph({ children: [normal(f.zjisteni || '—')], spacing: { after: 80 } }),
-      new D.Paragraph({ children: [bold('Doporučení:')] }),
-      new D.Paragraph({ children: [normal(f.doporuceni || '—')], spacing: { after: 80 } }),
-      new D.Paragraph({ children: [bold('Odpovědná osoba:')] }),
-      new D.Paragraph({ children: [normal(f.odpovedna || '—')] }),
-    ];
-    var foto;
-    if (f.foto) {
-      try {
-        var imgData = base64ToUint8Array(f.foto);
-        var mt = f.foto.includes('image/png') ? 'png' : 'jpg';
-        foto = [new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.ImageRun({ data: imgData, transformation: { width: 160, height: 120 }, type: mt })] })];
-      } catch(e) { foto = [new D.Paragraph({ children: [normal('(foto nelze načíst)')] })]; }
-    } else { foto = [new D.Paragraph({ children: [normal('')] })]; }
-
-    return new D.TableRow({ children: [
-      // Číslo nálezu má také šedé pozadí
-      new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(String(i+1), 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), verticalAlign: D.VerticalAlign.TOP, shading: { fill: grayFill } }),
-      new D.TableCell({ width: { size: 65, type: D.WidthType.PERCENTAGE }, children: content, borders: bb(thin), verticalAlign: D.VerticalAlign.TOP }),
-      new D.TableCell({ width: { size: 30, type: D.WidthType.PERCENTAGE }, children: foto, borders: bb(thin), verticalAlign: D.VerticalAlign.CENTER }),
-    ]});
-  }));
-
-  var findingsTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows: [fHeader].concat(fRows) });
-
-  var doc = new D.Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children: [
-    headerTable,
-    new D.Paragraph({ spacing: { before: 160, after: 0 } }),
-    infoTable,
-    new D.Paragraph({ spacing: { before: 200, after: 0 } }),
-    noticePara,
-    findingsTable,
-  ]}]});
-
-  var blob = await D.Packer.toBlob(doc);
-  var fname = ('BOZP_' + (h.pracoviste || 'provozka') + '_' + document.getElementById('h-datum').value + '.docx').replace(/[^a-zA-Z0-9.\-_]/g, '_');
-
-  if (mode === 'share') {
-    if (navigator.canShare && navigator.canShare({ files: [new File([blob], fname)] })) {
-      try {
-        await navigator.share({ files: [new File([blob], fname, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })], title: fname });
-        showToast('✅ Sdílení spuštěno!');
-      } catch(e) { if (e.name !== 'AbortError') showToast('⚠ Sdílení selhalo, zkus jiný způsob.'); }
-    } else { showToast('⚠ Share Sheet není k dispozici.'); }
-  } else if (mode === 'open') {
-    window.open(URL.createObjectURL(blob), '_blank');
-    showToast('📄 Otevřeno — ulož přes sdílení v Safari');
-  } else {
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = fname;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function() { URL.revokeObjectURL(url); }, 10000);
-    showToast('✅ Staženo!');
-  }
-}
-
-loadSaved();
-if (!document.getElementById('h-datum').value) {
-  document.getElementById('h-datum').value = new Date().toISOString().split('T')[0];
-}
-renderFindings();
-if (findings.length > 0) showToast('↩️ Načtena rozdělaná pochůzka (' + findings.length + ' nálezů)');
-</script>
-</body>
-</html>
+  var headerTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows:
