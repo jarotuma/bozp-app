@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>BOZP Pochůzka</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/docx@8.5.0/build/index.min.js"></script>
+
 <style>
   :root {
     --orange: #F4620A;
@@ -189,7 +192,6 @@
   <button class="tab" id="tab-2" type="button"><span class="tab-icon">📤</span>Export</button>
 </div>
 
-<!-- SCREEN 0 -->
 <div class="screen active" id="screen-0">
   <div class="section-label">Identifikace dokumentu</div>
   <div class="field"><label>Číslo prověrky</label><input type="text" id="h-cislo" placeholder="např. BOZP-2025-01"></div>
@@ -204,7 +206,6 @@
   <button class="btn btn-primary" id="btn-to-findings" type="button">✅ Pokračovat na nálezy →</button>
 </div>
 
-<!-- SCREEN 1 -->
 <div class="screen" id="screen-1">
   <div class="tip">💡 Klepni na nález pro rozbalení. Pro diktování klepni do pole a pak na <strong>🎙 mikrofon na klávesnici</strong>.</div>
   <div class="findings-list" id="findings-list">
@@ -218,7 +219,6 @@
   </div>
 </div>
 
-<!-- SCREEN 2 -->
 <div class="screen" id="screen-2">
   <div class="section-label">Přehled pochůzky</div>
   <div class="stat-grid">
@@ -251,17 +251,17 @@ function save() {
     var header = {};
     HEADER_FIELDS.forEach(function(id) { header[id] = document.getElementById(id).value; });
     localStorage.setItem('bozp_header', JSON.stringify(header));
-    // Findings bez foto pro rychlost, foto zvlášť
+    
     var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, priorita: f.priorita, fotoName: f.fotoName }; });
     localStorage.setItem('bozp_findings', JSON.stringify(lean));
-    // Foto zvlášť (může být velké)
+    
     findings.forEach(function(f, i) {
       if (f.foto) localStorage.setItem('bozp_foto_' + i, f.foto);
       else localStorage.removeItem('bozp_foto_' + i);
     });
-    // Smazat přebytečná foto
+    
     for (var i = findings.length; i < 50; i++) localStorage.removeItem('bozp_foto_' + i);
-  } catch(e) { /* localStorage může být plný kvůli fotkám */ }
+  } catch(e) { }
 }
 
 function loadSaved() {
@@ -316,7 +316,6 @@ document.getElementById('tab-1').addEventListener('click', function() { switchTa
 document.getElementById('tab-2').addEventListener('click', function() { switchTab(2); });
 document.getElementById('btn-to-findings').addEventListener('click', function() { switchTab(1); });
 
-// Autosave hlavičkových polí
 HEADER_FIELDS.forEach(function(id) {
   document.getElementById(id).addEventListener('input', function() { save(); });
   document.getElementById(id).addEventListener('change', function() { save(); });
@@ -351,7 +350,6 @@ function buildCard(i) {
   card.setAttribute('data-idx', i);
   card.setAttribute('data-priority', f.priorita);
 
-  // --- HEADER ---
   var header = document.createElement('div');
   header.className = 'finding-header';
 
@@ -386,17 +384,13 @@ function buildCard(i) {
 
   card.appendChild(header);
 
-  // --- BODY ---
   var body = document.createElement('div');
   body.className = 'finding-body';
   body.id = 'body-' + i;
 
-  // Zjištění
   body.appendChild(makeTA('Zjištění', 'zjisteni', i, f.zjisteni, 'Popis nálezu…'));
-  // Doporučení
   body.appendChild(makeTA('Doporučení', 'doporuceni', i, f.doporuceni, 'Návrh opatření…'));
 
-  // Odpovědná osoba
   var fOsoba = document.createElement('div');
   fOsoba.className = 'field';
   var lOsoba = document.createElement('label');
@@ -412,7 +406,6 @@ function buildCard(i) {
   fOsoba.appendChild(iOsoba);
   body.appendChild(fOsoba);
 
-  // Priorita
   var fPrio = document.createElement('div');
   fPrio.className = 'field';
   var lPrio = document.createElement('label');
@@ -436,10 +429,8 @@ function buildCard(i) {
   fPrio.appendChild(sel);
   body.appendChild(fPrio);
 
-  // Foto
   body.appendChild(makePhotoField(i, f));
 
-  // Delete
   var delBtn = document.createElement('button');
   delBtn.className = 'btn btn-danger btn-sm';
   delBtn.type = 'button';
@@ -564,7 +555,6 @@ function makePhotoField(idx, f) {
   return wrap;
 }
 
-// EXPORT SCREEN
 function updateExportScreen() {
   var withPhotos = 0;
   for (var i = 0; i < findings.length; i++) { if (findings[i].foto) withPhotos++; }
@@ -592,7 +582,6 @@ document.getElementById('btn-reset').addEventListener('click', function() {
   showToast('🔄 Pochůzka resetována');
 });
 
-// DOCX EXPORT
 function base64ToUint8Array(b64) {
   var raw = atob(b64.split(',')[1]);
   var arr = new Uint8Array(raw.length);
@@ -602,7 +591,7 @@ function base64ToUint8Array(b64) {
 
 async function exportDocx(mode) {
   if (typeof docx === 'undefined') {
-    showToast('⚠ Potřebuji internet pro export (načítám docx.js)');
+    showToast('⚠ Word modul se stále načítá, zkus to za chvíli.');
     return;
   }
   var D = docx;
@@ -706,7 +695,6 @@ async function exportDocx(mode) {
   }
 }
 
-// INIT — načti uložená data, nebo nastav dnešní datum
 loadSaved();
 if (!document.getElementById('h-datum').value) {
   document.getElementById('h-datum').value = new Date().toISOString().split('T')[0];
@@ -714,7 +702,5 @@ if (!document.getElementById('h-datum').value) {
 renderFindings();
 if (findings.length > 0) showToast('↩️ Načtena rozdělaná pochůzka (' + findings.length + ' nálezů)');
 </script>
-<!-- docx načten PO main scriptu — chyba při načítání CDN nerozbije UI -->
-<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 </body>
 </html>
