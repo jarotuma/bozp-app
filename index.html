@@ -296,7 +296,6 @@ function save() {
     var header = {};
     HEADER_FIELDS.forEach(function(id) { header[id] = document.getElementById(id).value; });
     localStorage.setItem('bozp_header', JSON.stringify(header));
-    // Priorita odstraněna
     var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, fotoName: f.fotoName, fotoW: f.fotoW, fotoH: f.fotoH }; });
     localStorage.setItem('bozp_findings', JSON.stringify(lean));
     findings.forEach(function(f, i) {
@@ -451,8 +450,6 @@ function buildCard(i) {
   fOsoba.appendChild(lOsoba);
   fOsoba.appendChild(iOsoba);
   body.appendChild(fOsoba);
-
-  // ZDE BYL KÓD PRO PRIORITU - ODSTRANĚNO
 
   body.appendChild(makePhotoField(i, f));
 
@@ -741,14 +738,37 @@ async function exportDocx(mode) {
 
   var findingsTable = new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, rows: [fHeader].concat(fRows) });
 
-  var doc = new D.Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children: [
-    headerTable,
-    new D.Paragraph({ spacing: { before: 160, after: 0 } }),
-    infoTable,
-    new D.Paragraph({ spacing: { before: 200, after: 0 } }),
-    noticePara,
-    findingsTable,
-  ]}]});
+  var doc = new D.Document({ 
+    sections: [{ 
+        properties: { 
+            page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } 
+        }, 
+        // PŘIDÁNO ZÁPATÍ S ČÍSLOVÁNÍM
+        footers: {
+            default: new D.Footer({
+                children: [
+                    new D.Paragraph({
+                        alignment: D.AlignmentType.RIGHT,
+                        children: [
+                            new D.TextRun({ text: "Strana ", font: "Verdana", size: 20, color: "888888" }),
+                            new D.TextRun({ children: [D.PageNumber.CURRENT], font: "Verdana", size: 20, color: "888888" }),
+                            new D.TextRun({ text: " z ", font: "Verdana", size: 20, color: "888888" }),
+                            new D.TextRun({ children: [D.PageNumber.TOTAL_PAGES], font: "Verdana", size: 20, color: "888888" })
+                        ]
+                    })
+                ]
+            })
+        },
+        children: [
+            headerTable,
+            new D.Paragraph({ spacing: { before: 160, after: 0 } }),
+            infoTable,
+            new D.Paragraph({ spacing: { before: 200, after: 0 } }),
+            noticePara,
+            findingsTable,
+        ]
+    }]
+  });
 
   var blob = await D.Packer.toBlob(doc);
   var shortFirma = h.firma.includes('Bohumín') ? 'Bohumin' : 'Petrovice';
