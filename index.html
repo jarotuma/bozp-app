@@ -9,8 +9,8 @@
 
 <style>
   :root {
-    --orange: #F4620A;
-    --orange-light: #FF8940;
+    --orange: #1A72E8;
+    --orange-light: #4A8DF5;
     --black: #111111;
     --dark: #1A1A1A;
     --surface: #242424;
@@ -190,7 +190,7 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   .divider { height: 1px; background: var(--border); margin: 16px 0; }
-  .tip { background: rgba(244,98,10,0.08); border-left: 3px solid var(--orange); padding: 10px 12px; border-radius: 0 6px 6px 0; font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .tip { background: rgba(26,114,232,0.08); border-left: 3px solid var(--orange); padding: 10px 12px; border-radius: 0 6px 6px 0; font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
   .empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); }
   .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
   .empty-state p { font-size: 15px; }
@@ -745,7 +745,7 @@ async function exportDocx(mode) {
   }
 
   var thin = { style: D.BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
-  var orangeBorder = { style: D.BorderStyle.SINGLE, size: 8, color: 'F4620A' };
+  var orangeBorder = { style: D.BorderStyle.SINGLE, size: 8, color: '1A72E8' };
   var grayFill = 'E0E0E0';
 
   function bb(b) { return { top: b, bottom: b, left: b, right: b }; }
