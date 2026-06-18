@@ -308,6 +308,7 @@
       <button class="size-btn" data-size="3" title="Tenké pero">S</button>
       <button class="size-btn active" data-size="6" title="Střední pero">M</button>
       <button class="size-btn" data-size="12" title="Tlusté pero">L</button>
+      <button class="size-btn" id="annot-eraser" title="Guma">⌫</button>
     </div>
     <button class="btn btn-secondary btn-sm" id="annot-undo" type="button">↩ Zpět</button>
   </div>
@@ -862,7 +863,7 @@ async function exportDocx(mode) {
 }
 
 // ── Annotation modal ────────────────────────────────────────────────────────
-var annotState = { color: '#FF3030', size: 6, history: [], drawing: false, lastX: 0, lastY: 0, onSave: null };
+var annotState = { color: '#FF3030', size: 6, tool: 'pen', bgImage: null, history: [], drawing: false, lastX: 0, lastY: 0, onSave: null };
 
 function openAnnotModal(dataUrl, onSave) {
   annotState.history = [];
@@ -877,6 +878,7 @@ function openAnnotModal(dataUrl, onSave) {
     canvas.width = img.width;
     canvas.height = img.height;
     ctx.drawImage(img, 0, 0);
+    annotState.bgImage = img;
     annotPushHistory();
   };
   img.src = dataUrl;
@@ -910,28 +912,45 @@ function annotGetPos(e, canvas) {
   var canvas = document.getElementById('annot-canvas');
   var ctx = canvas.getContext('2d');
 
+  function eraseCircle(p) {
+    var r = annotState.size * 3;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.clip();
+    if (annotState.bgImage) ctx.drawImage(annotState.bgImage, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  }
   function startDraw(e) {
     e.preventDefault();
     annotState.drawing = true;
     var p = annotGetPos(e, canvas);
     annotState.lastX = p.x; annotState.lastY = p.y;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, annotState.size / 2, 0, Math.PI * 2);
-    ctx.fillStyle = annotState.color;
-    ctx.fill();
+    if (annotState.tool === 'eraser') {
+      eraseCircle(p);
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, annotState.size / 2, 0, Math.PI * 2);
+      ctx.fillStyle = annotState.color;
+      ctx.fill();
+    }
   }
   function doDraw(e) {
     e.preventDefault();
     if (!annotState.drawing) return;
     var p = annotGetPos(e, canvas);
-    ctx.beginPath();
-    ctx.moveTo(annotState.lastX, annotState.lastY);
-    ctx.lineTo(p.x, p.y);
-    ctx.strokeStyle = annotState.color;
-    ctx.lineWidth = annotState.size;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
+    if (annotState.tool === 'eraser') {
+      eraseCircle(p);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(annotState.lastX, annotState.lastY);
+      ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = annotState.color;
+      ctx.lineWidth = annotState.size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
     annotState.lastX = p.x; annotState.lastY = p.y;
   }
   function endDraw() {
@@ -954,7 +973,14 @@ document.querySelectorAll('.color-swatch').forEach(function(btn) {
     document.querySelectorAll('.color-swatch').forEach(function(b) { b.classList.remove('active'); });
     this.classList.add('active');
     annotState.color = this.getAttribute('data-color');
+    annotState.tool = 'pen';
+    document.getElementById('annot-eraser').classList.remove('active');
   });
+});
+document.getElementById('annot-eraser').addEventListener('click', function() {
+  var isEraser = annotState.tool === 'eraser';
+  annotState.tool = isEraser ? 'pen' : 'eraser';
+  this.classList.toggle('active', !isEraser);
 });
 document.querySelectorAll('.size-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
