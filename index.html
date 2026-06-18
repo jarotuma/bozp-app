@@ -344,8 +344,13 @@ function save() {
     findings.forEach(function(f, i) {
       if (f.foto) localStorage.setItem('bozp_foto_' + i, f.foto);
       else localStorage.removeItem('bozp_foto_' + i);
+      if (f.fotoOrig) localStorage.setItem('bozp_foto_orig_' + i, f.fotoOrig);
+      else localStorage.removeItem('bozp_foto_orig_' + i);
     });
-    for (var i = findings.length; i < 50; i++) localStorage.removeItem('bozp_foto_' + i);
+    for (var i = findings.length; i < 50; i++) {
+      localStorage.removeItem('bozp_foto_' + i);
+      localStorage.removeItem('bozp_foto_orig_' + i);
+    }
   } catch(e) { }
 }
 
@@ -369,6 +374,7 @@ function loadSaved() {
       findings = JSON.parse(findingsRaw);
       findings.forEach(function(f, i) {
         f.foto = localStorage.getItem('bozp_foto_' + i) || null;
+        f.fotoOrig = localStorage.getItem('bozp_foto_orig_' + i) || null;
       });
     }
   } catch(e) {}
@@ -378,7 +384,10 @@ function clearSaved() {
   try {
     localStorage.removeItem('bozp_header');
     localStorage.removeItem('bozp_findings');
-    for (var i = 0; i < 50; i++) localStorage.removeItem('bozp_foto_' + i);
+    for (var i = 0; i < 50; i++) {
+      localStorage.removeItem('bozp_foto_' + i);
+      localStorage.removeItem('bozp_foto_orig_' + i);
+    }
   } catch(e) {}
 }
 
@@ -416,7 +425,7 @@ HEADER_FIELDS.forEach(function(id) {
 });
 
 document.getElementById('btn-add-finding').addEventListener('click', function() {
-  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', foto: null, fotoName: '', fotoW: 0, fotoH: 0 });
+  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', foto: null, fotoName: '', fotoW: 0, fotoH: 0, fotoOrig: null });
   renderFindings();
   setTimeout(function() {
     var body = document.getElementById('body-' + (findings.length - 1));
@@ -586,10 +595,11 @@ function makePhotoField(idx, f) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
-        openAnnotModal(dataUrl, function(annotatedUrl) {
+        openAnnotModal(dataUrl, dataUrl, function(annotatedUrl) {
           var tmp = new Image();
           tmp.onload = function() {
             findings[idx].foto = annotatedUrl;
+            findings[idx].fotoOrig = dataUrl;
             findings[idx].fotoName = capturedName;
             findings[idx].fotoW = tmp.width;
             findings[idx].fotoH = tmp.height;
@@ -626,7 +636,7 @@ function makePhotoField(idx, f) {
     annotBtn.textContent = '✏️ Zakreslit';
     annotBtn.addEventListener('click', (function(i) {
       return function() {
-        openAnnotModal(findings[i].foto, function(annotatedUrl) {
+        openAnnotModal(findings[i].foto, findings[i].fotoOrig || findings[i].foto, function(annotatedUrl) {
           var tmp = new Image();
           tmp.onload = function() {
             findings[i].foto = annotatedUrl;
@@ -865,26 +875,32 @@ async function exportDocx(mode) {
 // ── Annotation modal ────────────────────────────────────────────────────────
 var annotState = { color: '#FF3030', size: 6, tool: 'pen', bgCanvas: null, history: [], drawing: false, lastX: 0, lastY: 0, onSave: null };
 
-function openAnnotModal(dataUrl, onSave) {
+function openAnnotModal(displayUrl, bgUrl, onSave) {
   annotState.history = [];
   annotState.onSave = onSave;
   annotState.drawing = false;
+  annotState.bgCanvas = null;
   var modal = document.getElementById('annot-modal');
   var canvas = document.getElementById('annot-canvas');
   var ctx = canvas.getContext('2d');
   modal.classList.add('open');
-  var img = new Image();
-  img.onload = function() {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
+
+  var loaded = 0;
+  var dispImg = new Image(), bgImg = new Image();
+  function onBothLoaded() {
+    canvas.width = dispImg.width;
+    canvas.height = dispImg.height;
+    ctx.drawImage(dispImg, 0, 0);
     var bg = document.createElement('canvas');
-    bg.width = canvas.width; bg.height = canvas.height;
-    bg.getContext('2d').drawImage(img, 0, 0);
+    bg.width = bgImg.width; bg.height = bgImg.height;
+    bg.getContext('2d').drawImage(bgImg, 0, 0);
     annotState.bgCanvas = bg;
     annotPushHistory();
-  };
-  img.src = dataUrl;
+  }
+  dispImg.onload = function() { if (++loaded === 2) onBothLoaded(); };
+  bgImg.onload  = function() { if (++loaded === 2) onBothLoaded(); };
+  dispImg.src = displayUrl;
+  bgImg.src   = bgUrl || displayUrl;
 }
 
 function annotPushHistory() {
@@ -917,7 +933,7 @@ function annotGetPos(e, canvas) {
 
   function eraseStroke(x1, y1, x2, y2) {
     if (!annotState.bgCanvas) return;
-    var r = Math.max(annotState.size * 6, 40);
+    var r = annotState.size * 10;
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
     ctx.beginPath();
