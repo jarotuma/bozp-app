@@ -863,7 +863,7 @@ async function exportDocx(mode) {
 }
 
 // ── Annotation modal ────────────────────────────────────────────────────────
-var annotState = { color: '#FF3030', size: 6, tool: 'pen', bgImage: null, history: [], drawing: false, lastX: 0, lastY: 0, onSave: null };
+var annotState = { color: '#FF3030', size: 6, tool: 'pen', bgCanvas: null, history: [], drawing: false, lastX: 0, lastY: 0, onSave: null };
 
 function openAnnotModal(dataUrl, onSave) {
   annotState.history = [];
@@ -878,7 +878,10 @@ function openAnnotModal(dataUrl, onSave) {
     canvas.width = img.width;
     canvas.height = img.height;
     ctx.drawImage(img, 0, 0);
-    annotState.bgImage = img;
+    var bg = document.createElement('canvas');
+    bg.width = canvas.width; bg.height = canvas.height;
+    bg.getContext('2d').drawImage(img, 0, 0);
+    annotState.bgCanvas = bg;
     annotPushHistory();
   };
   img.src = dataUrl;
@@ -912,13 +915,21 @@ function annotGetPos(e, canvas) {
   var canvas = document.getElementById('annot-canvas');
   var ctx = canvas.getContext('2d');
 
-  function eraseCircle(p) {
-    var r = annotState.size * 3;
+  function eraseStroke(x1, y1, x2, y2) {
+    if (!annotState.bgCanvas) return;
+    var r = Math.max(annotState.size * 6, 40);
     ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
     ctx.beginPath();
-    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    ctx.clip();
-    if (annotState.bgImage) ctx.drawImage(annotState.bgImage, 0, 0, canvas.width, canvas.height);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineWidth = r * 2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.drawImage(annotState.bgCanvas, 0, 0);
     ctx.restore();
   }
   function startDraw(e) {
@@ -927,7 +938,7 @@ function annotGetPos(e, canvas) {
     var p = annotGetPos(e, canvas);
     annotState.lastX = p.x; annotState.lastY = p.y;
     if (annotState.tool === 'eraser') {
-      eraseCircle(p);
+      eraseStroke(p.x, p.y, p.x, p.y);
     } else {
       ctx.beginPath();
       ctx.arc(p.x, p.y, annotState.size / 2, 0, Math.PI * 2);
@@ -940,7 +951,7 @@ function annotGetPos(e, canvas) {
     if (!annotState.drawing) return;
     var p = annotGetPos(e, canvas);
     if (annotState.tool === 'eraser') {
-      eraseCircle(p);
+      eraseStroke(annotState.lastX, annotState.lastY, p.x, p.y);
     } else {
       ctx.beginPath();
       ctx.moveTo(annotState.lastX, annotState.lastY);
