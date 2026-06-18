@@ -143,6 +143,22 @@
   .photo-controls { display: flex; flex-direction: column; gap: 6px; flex: 1; }
   input[type="file"] { display: none; }
 
+  /* Annotation modal */
+  .annot-modal { display: none; position: fixed; inset: 0; background: #000; z-index: 500; flex-direction: column; }
+  .annot-modal.open { display: flex; }
+  .annot-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--dark); border-bottom: 2px solid var(--orange); flex-shrink: 0; gap: 8px; }
+  .annot-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; flex: 1; text-align: center; }
+  .annot-canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #000; touch-action: none; }
+  #annot-canvas { max-width: 100%; max-height: 100%; display: block; cursor: crosshair; touch-action: none; }
+  .annot-toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--dark); border-top: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; }
+  .annot-colors { display: flex; gap: 8px; align-items: center; }
+  .color-swatch { width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; flex-shrink: 0; padding: 0; }
+  .color-swatch.active { border-color: #fff; box-shadow: 0 0 0 1px var(--orange); }
+  .annot-sizes { display: flex; gap: 5px; align-items: center; }
+  .size-btn { width: 34px; height: 34px; border-radius: 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); cursor: pointer; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .size-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .annot-save-btn { background: var(--orange); color: #fff; border: none; }
+
   .add-finding-btn {
     border: 2px dashed var(--border); background: transparent; color: var(--text-muted);
     border-radius: 10px; padding: 16px; width: 100%;
@@ -269,6 +285,32 @@
   <button class="btn btn-secondary" id="btn-export-open" type="button" style="margin-bottom:10px">🌐 Otevřít v prohlížeči (uložit ručně)</button>
   <div class="divider"></div>
   <button class="btn btn-secondary" id="btn-reset" type="button">🗑 Začít novou pochůzku</button>
+</div>
+
+<div id="annot-modal" class="annot-modal">
+  <div class="annot-header">
+    <button class="btn btn-secondary btn-sm" id="annot-cancel" type="button">✕ Zrušit</button>
+    <span class="annot-title">Zakreslení nálezu</span>
+    <button class="btn btn-sm annot-save-btn" id="annot-save" type="button">✓ Uložit</button>
+  </div>
+  <div class="annot-canvas-wrap" id="annot-canvas-wrap">
+    <canvas id="annot-canvas"></canvas>
+  </div>
+  <div class="annot-toolbar">
+    <div class="annot-colors">
+      <button class="color-swatch active" data-color="#FF3030" style="background:#FF3030" title="Červená"></button>
+      <button class="color-swatch" data-color="#FFD700" style="background:#FFD700" title="Žlutá"></button>
+      <button class="color-swatch" data-color="#00E676" style="background:#00E676" title="Zelená"></button>
+      <button class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF" title="Bílá"></button>
+      <button class="color-swatch" data-color="#111111" style="background:#111111;border-color:var(--border)" title="Černá"></button>
+    </div>
+    <div class="annot-sizes">
+      <button class="size-btn" data-size="3" title="Tenké pero">S</button>
+      <button class="size-btn active" data-size="6" title="Střední pero">M</button>
+      <button class="size-btn" data-size="12" title="Tlusté pero">L</button>
+    </div>
+    <button class="btn btn-secondary btn-sm" id="annot-undo" type="button">↩ Zpět</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -518,9 +560,10 @@ function makePhotoField(idx, f) {
   fileInput.addEventListener('change', function() {
     var file = this.files[0];
     if (!file) return;
-    
+
     showToast('⏳ Zpracovávám fotku...');
-    
+
+    var capturedName = file.name;
     var reader = new FileReader();
     reader.onload = function(e) {
       var img = new Image();
@@ -530,35 +573,34 @@ function makePhotoField(idx, f) {
         var MAX_DIM = 800;
         var width = img.width;
         var height = img.height;
-        
+
         if (width > height) {
-          if (width > MAX_DIM) {
-            height *= MAX_DIM / width;
-            width = MAX_DIM;
-          }
+          if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
         } else {
-          if (height > MAX_DIM) {
-            width *= MAX_DIM / height;
-            height = MAX_DIM;
-          }
+          if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
         }
-        
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        
-        findings[idx].foto = dataUrl;
-        findings[idx].fotoName = file.name;
-        findings[idx].fotoW = width;
-        findings[idx].fotoH = height;
-        
-        renderFindings();
-        setTimeout(function() {
-          var b = document.getElementById('body-' + idx);
-          if (b) b.classList.add('open');
-        }, 60);
-        showToast('✅ Fotka vložena a zkomprimována!');
+
+        openAnnotModal(dataUrl, function(annotatedUrl) {
+          var tmp = new Image();
+          tmp.onload = function() {
+            findings[idx].foto = annotatedUrl;
+            findings[idx].fotoName = capturedName;
+            findings[idx].fotoW = tmp.width;
+            findings[idx].fotoH = tmp.height;
+            save();
+            renderFindings();
+            setTimeout(function() {
+              var b = document.getElementById('body-' + idx);
+              if (b) b.classList.add('open');
+            }, 60);
+          };
+          tmp.src = annotatedUrl;
+        });
       };
       img.src = e.target.result;
     };
@@ -577,6 +619,31 @@ function makePhotoField(idx, f) {
   controls.appendChild(photoBtn);
 
   if (f.foto) {
+    var annotBtn = document.createElement('button');
+    annotBtn.className = 'btn btn-secondary btn-sm';
+    annotBtn.type = 'button';
+    annotBtn.textContent = '✏️ Zakreslit';
+    annotBtn.addEventListener('click', (function(i) {
+      return function() {
+        openAnnotModal(findings[i].foto, function(annotatedUrl) {
+          var tmp = new Image();
+          tmp.onload = function() {
+            findings[i].foto = annotatedUrl;
+            findings[i].fotoW = tmp.width;
+            findings[i].fotoH = tmp.height;
+            save();
+            renderFindings();
+            setTimeout(function() {
+              var b = document.getElementById('body-' + i);
+              if (b) b.classList.add('open');
+            }, 60);
+          };
+          tmp.src = annotatedUrl;
+        });
+      };
+    })(idx));
+    controls.appendChild(annotBtn);
+
     var removeBtn = document.createElement('button');
     removeBtn.className = 'btn btn-secondary btn-sm';
     removeBtn.type = 'button';
@@ -793,6 +860,121 @@ async function exportDocx(mode) {
     showToast('✅ Staženo!');
   }
 }
+
+// ── Annotation modal ────────────────────────────────────────────────────────
+var annotState = { color: '#FF3030', size: 6, history: [], drawing: false, lastX: 0, lastY: 0, onSave: null };
+
+function openAnnotModal(dataUrl, onSave) {
+  annotState.history = [];
+  annotState.onSave = onSave;
+  annotState.drawing = false;
+  var modal = document.getElementById('annot-modal');
+  var canvas = document.getElementById('annot-canvas');
+  var ctx = canvas.getContext('2d');
+  modal.classList.add('open');
+  var img = new Image();
+  img.onload = function() {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    annotPushHistory();
+  };
+  img.src = dataUrl;
+}
+
+function annotPushHistory() {
+  var canvas = document.getElementById('annot-canvas');
+  annotState.history.push(canvas.toDataURL());
+  if (annotState.history.length > 20) annotState.history.shift();
+}
+
+function annotUndo() {
+  if (annotState.history.length <= 1) { showToast('Není co vrátit.'); return; }
+  annotState.history.pop();
+  var canvas = document.getElementById('annot-canvas');
+  var ctx = canvas.getContext('2d');
+  var img = new Image();
+  img.onload = function() { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0); };
+  img.src = annotState.history[annotState.history.length - 1];
+}
+
+function annotGetPos(e, canvas) {
+  var rect = canvas.getBoundingClientRect();
+  var scaleX = canvas.width / rect.width;
+  var scaleY = canvas.height / rect.height;
+  var src = e.touches ? e.touches[0] : e;
+  return { x: (src.clientX - rect.left) * scaleX, y: (src.clientY - rect.top) * scaleY };
+}
+
+(function initAnnotCanvas() {
+  var canvas = document.getElementById('annot-canvas');
+  var ctx = canvas.getContext('2d');
+
+  function startDraw(e) {
+    e.preventDefault();
+    annotState.drawing = true;
+    var p = annotGetPos(e, canvas);
+    annotState.lastX = p.x; annotState.lastY = p.y;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, annotState.size / 2, 0, Math.PI * 2);
+    ctx.fillStyle = annotState.color;
+    ctx.fill();
+  }
+  function doDraw(e) {
+    e.preventDefault();
+    if (!annotState.drawing) return;
+    var p = annotGetPos(e, canvas);
+    ctx.beginPath();
+    ctx.moveTo(annotState.lastX, annotState.lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = annotState.color;
+    ctx.lineWidth = annotState.size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    annotState.lastX = p.x; annotState.lastY = p.y;
+  }
+  function endDraw() {
+    if (!annotState.drawing) return;
+    annotState.drawing = false;
+    annotPushHistory();
+  }
+
+  canvas.addEventListener('touchstart', startDraw, { passive: false });
+  canvas.addEventListener('touchmove', doDraw, { passive: false });
+  canvas.addEventListener('touchend', endDraw);
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', doDraw);
+  canvas.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('mouseleave', endDraw);
+})();
+
+document.querySelectorAll('.color-swatch').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.color-swatch').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    annotState.color = this.getAttribute('data-color');
+  });
+});
+document.querySelectorAll('.size-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.size-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    annotState.size = parseInt(this.getAttribute('data-size'));
+  });
+});
+document.getElementById('annot-undo').addEventListener('click', annotUndo);
+document.getElementById('annot-cancel').addEventListener('click', function() {
+  document.getElementById('annot-modal').classList.remove('open');
+});
+document.getElementById('annot-save').addEventListener('click', function() {
+  var canvas = document.getElementById('annot-canvas');
+  var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  if (annotState.onSave) annotState.onSave(dataUrl);
+  document.getElementById('annot-modal').classList.remove('open');
+  showToast('✅ Anotace uložena!');
+});
+// ── End annotation modal ─────────────────────────────────────────────────────
 
 loadSaved();
 if (!document.getElementById('h-datum').value) {
