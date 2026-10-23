@@ -142,6 +142,15 @@
   .photo-placeholder { width: 72px; height: 72px; border-radius: 6px; border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; color: var(--text-dim); }
   .photo-controls { display: flex; flex-direction: column; gap: 6px; flex: 1; }
   input[type="file"] { display: none; }
+  .photos-strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px; }
+  .photos-strip::-webkit-scrollbar { height: 3px; }
+  .photos-strip::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .photo-thumb-wrap { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .photo-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 2px solid var(--orange); display: block; }
+  .photo-thumb-actions { display: flex; gap: 4px; width: 80px; }
+  .photo-thumb-actions .btn-sm { flex: 1; min-height: 28px; padding: 2px; font-size: 11px; }
+  .photo-add-btn { width: 80px; height: 80px; border-radius: 6px; border: 2px dashed var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; background: transparent; color: var(--text-muted); cursor: pointer; min-height: 80px; -webkit-appearance: none; touch-action: manipulation; }
+  .photo-add-btn:active { opacity: 0.7; border-color: var(--orange); }
 
   /* Annotation modal */
   .annot-modal { display: none; position: fixed; inset: 0; background: #000; z-index: 500; flex-direction: column; }
@@ -339,17 +348,37 @@ function save() {
     var header = {};
     HEADER_FIELDS.forEach(function(id) { header[id] = document.getElementById(id).value; });
     localStorage.setItem('bozp_header', JSON.stringify(header));
-    var lean = findings.map(function(f) { return { zjisteni: f.zjisteni, doporuceni: f.doporuceni, odpovedna: f.odpovedna, fotoName: f.fotoName, fotoW: f.fotoW, fotoH: f.fotoH }; });
+    var lean = findings.map(function(f) {
+      return {
+        zjisteni: f.zjisteni,
+        doporuceni: f.doporuceni,
+        odpovedna: f.odpovedna,
+        fotos: (f.fotos || []).map(function(p) { return { fotoName: p.fotoName, fotoW: p.fotoW, fotoH: p.fotoH }; })
+      };
+    });
     localStorage.setItem('bozp_findings', JSON.stringify(lean));
     findings.forEach(function(f, i) {
-      if (f.foto) localStorage.setItem('bozp_foto_' + i, f.foto);
-      else localStorage.removeItem('bozp_foto_' + i);
-      if (f.fotoOrig) localStorage.setItem('bozp_foto_orig_' + i, f.fotoOrig);
-      else localStorage.removeItem('bozp_foto_orig_' + i);
+      var fotos = f.fotos || [];
+      for (var j = 0; j < fotos.length; j++) {
+        if (fotos[j].foto) localStorage.setItem('bozp_foto_' + i + '_' + j, fotos[j].foto);
+        else localStorage.removeItem('bozp_foto_' + i + '_' + j);
+        if (fotos[j].fotoOrig) localStorage.setItem('bozp_foto_orig_' + i + '_' + j, fotos[j].fotoOrig);
+        else localStorage.removeItem('bozp_foto_orig_' + i + '_' + j);
+      }
+      for (var j = fotos.length; j < 10; j++) {
+        localStorage.removeItem('bozp_foto_' + i + '_' + j);
+        localStorage.removeItem('bozp_foto_orig_' + i + '_' + j);
+      }
+      localStorage.removeItem('bozp_foto_' + i);
+      localStorage.removeItem('bozp_foto_orig_' + i);
     });
     for (var i = findings.length; i < 50; i++) {
       localStorage.removeItem('bozp_foto_' + i);
       localStorage.removeItem('bozp_foto_orig_' + i);
+      for (var j = 0; j < 10; j++) {
+        localStorage.removeItem('bozp_foto_' + i + '_' + j);
+        localStorage.removeItem('bozp_foto_orig_' + i + '_' + j);
+      }
     }
   } catch(e) { }
 }
@@ -373,8 +402,16 @@ function loadSaved() {
     if (findingsRaw) {
       findings = JSON.parse(findingsRaw);
       findings.forEach(function(f, i) {
-        f.foto = localStorage.getItem('bozp_foto_' + i) || null;
-        f.fotoOrig = localStorage.getItem('bozp_foto_orig_' + i) || null;
+        if (Array.isArray(f.fotos)) {
+          f.fotos.forEach(function(p, j) {
+            p.foto = localStorage.getItem('bozp_foto_' + i + '_' + j) || null;
+            p.fotoOrig = localStorage.getItem('bozp_foto_orig_' + i + '_' + j) || null;
+          });
+        } else {
+          var oldFoto = localStorage.getItem('bozp_foto_' + i) || null;
+          var oldOrig = localStorage.getItem('bozp_foto_orig_' + i) || null;
+          f.fotos = oldFoto ? [{ foto: oldFoto, fotoOrig: oldOrig, fotoName: f.fotoName || '', fotoW: f.fotoW || 0, fotoH: f.fotoH || 0 }] : [];
+        }
       });
     }
   } catch(e) {}
@@ -387,6 +424,10 @@ function clearSaved() {
     for (var i = 0; i < 50; i++) {
       localStorage.removeItem('bozp_foto_' + i);
       localStorage.removeItem('bozp_foto_orig_' + i);
+      for (var j = 0; j < 10; j++) {
+        localStorage.removeItem('bozp_foto_' + i + '_' + j);
+        localStorage.removeItem('bozp_foto_orig_' + i + '_' + j);
+      }
     }
   } catch(e) {}
 }
@@ -425,7 +466,7 @@ HEADER_FIELDS.forEach(function(id) {
 });
 
 document.getElementById('btn-add-finding').addEventListener('click', function() {
-  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', foto: null, fotoName: '', fotoW: 0, fotoH: 0, fotoOrig: null });
+  findings.push({ zjisteni: '', doporuceni: '', odpovedna: '', fotos: [] });
   renderFindings();
   setTimeout(function() {
     var body = document.getElementById('body-' + (findings.length - 1));
@@ -465,7 +506,8 @@ function buildCard(i) {
 
   var icons = document.createElement('span');
   icons.style.marginRight = '4px';
-  icons.textContent = f.foto ? '📷' : '';
+  var photoCount = (f.fotos || []).filter(function(p) { return p.foto; }).length;
+  icons.textContent = photoCount > 0 ? '📷' + (photoCount > 1 ? ' ×' + photoCount : '') : '';
 
   var chevron = document.createElement('span');
   chevron.style.color = 'var(--text-dim)';
@@ -545,34 +587,77 @@ function makePhotoField(idx, f) {
   wrap.className = 'field';
   var lbl = document.createElement('label');
   lbl.textContent = 'Fotodokumentace';
-  var area = document.createElement('div');
-  area.className = 'photo-area';
+  wrap.appendChild(lbl);
 
-  if (f.foto) {
-    var imgPreview = document.createElement('img');
-    imgPreview.className = 'photo-preview';
-    imgPreview.src = f.foto;
-    imgPreview.alt = 'foto';
-    area.appendChild(imgPreview);
-  } else {
-    var ph = document.createElement('div');
-    ph.className = 'photo-placeholder';
-    ph.textContent = '📷';
-    area.appendChild(ph);
-  }
+  var strip = document.createElement('div');
+  strip.className = 'photos-strip';
+
+  var fotos = findings[idx].fotos || [];
+
+  fotos.forEach(function(p, j) {
+    var thumbWrap = document.createElement('div');
+    thumbWrap.className = 'photo-thumb-wrap';
+
+    var img = document.createElement('img');
+    img.className = 'photo-thumb';
+    img.src = p.foto;
+    img.alt = 'foto';
+    thumbWrap.appendChild(img);
+
+    var actions = document.createElement('div');
+    actions.className = 'photo-thumb-actions';
+
+    var editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-secondary btn-sm';
+    editBtn.type = 'button';
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Zakreslit';
+    editBtn.addEventListener('click', (function(fi, fj) {
+      return function() {
+        openAnnotModal(findings[fi].fotos[fj].foto, findings[fi].fotos[fj].fotoOrig || findings[fi].fotos[fj].foto, function(annotatedUrl) {
+          var tmp = new Image();
+          tmp.onload = function() {
+            findings[fi].fotos[fj].foto = annotatedUrl;
+            findings[fi].fotos[fj].fotoW = tmp.width;
+            findings[fi].fotos[fj].fotoH = tmp.height;
+            save();
+            renderFindings();
+            setTimeout(function() { var b = document.getElementById('body-' + fi); if (b) b.classList.add('open'); }, 60);
+          };
+          tmp.src = annotatedUrl;
+        });
+      };
+    })(idx, j));
+    actions.appendChild(editBtn);
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-secondary btn-sm';
+    delBtn.type = 'button';
+    delBtn.textContent = '🗑';
+    delBtn.title = 'Smazat foto';
+    delBtn.addEventListener('click', (function(fi, fj) {
+      return function() {
+        findings[fi].fotos.splice(fj, 1);
+        save();
+        renderFindings();
+        setTimeout(function() { var b = document.getElementById('body-' + fi); if (b) b.classList.add('open'); }, 60);
+      };
+    })(idx, j));
+    actions.appendChild(delBtn);
+
+    thumbWrap.appendChild(actions);
+    strip.appendChild(thumbWrap);
+  });
 
   var fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = 'image/*';
   fileInput.setAttribute('capture', 'environment');
-  fileInput.id = 'photo-' + idx;
-  
+
   fileInput.addEventListener('change', function() {
     var file = this.files[0];
     if (!file) return;
-
     showToast('⏳ Zpracovávám fotku...');
-
     var capturedName = file.name;
     var reader = new FileReader();
     reader.onload = function(e) {
@@ -581,34 +666,24 @@ function makePhotoField(idx, f) {
         var canvas = document.createElement('canvas');
         var ctx = canvas.getContext('2d');
         var MAX_DIM = 800;
-        var width = img.width;
-        var height = img.height;
-
+        var width = img.width, height = img.height;
         if (width > height) {
           if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
         } else {
           if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
         }
-
         canvas.width = Math.round(width);
         canvas.height = Math.round(height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
         openAnnotModal(dataUrl, dataUrl, function(annotatedUrl) {
           var tmp = new Image();
           tmp.onload = function() {
-            findings[idx].foto = annotatedUrl;
-            findings[idx].fotoOrig = dataUrl;
-            findings[idx].fotoName = capturedName;
-            findings[idx].fotoW = tmp.width;
-            findings[idx].fotoH = tmp.height;
+            if (!findings[idx].fotos) findings[idx].fotos = [];
+            findings[idx].fotos.push({ foto: annotatedUrl, fotoOrig: dataUrl, fotoName: capturedName, fotoW: tmp.width, fotoH: tmp.height });
             save();
             renderFindings();
-            setTimeout(function() {
-              var b = document.getElementById('body-' + idx);
-              if (b) b.classList.add('open');
-            }, 60);
+            setTimeout(function() { var b = document.getElementById('body-' + idx); if (b) b.classList.add('open'); }, 60);
           };
           tmp.src = annotatedUrl;
         });
@@ -618,70 +693,25 @@ function makePhotoField(idx, f) {
     reader.readAsDataURL(file);
   });
 
-  var controls = document.createElement('div');
-  controls.className = 'photo-controls';
-  controls.appendChild(fileInput);
+  var addWrap = document.createElement('div');
+  addWrap.className = 'photo-thumb-wrap';
+  addWrap.appendChild(fileInput);
 
-  var photoBtn = document.createElement('button');
-  photoBtn.className = 'btn btn-secondary btn-sm';
-  photoBtn.type = 'button';
-  photoBtn.textContent = f.foto ? '📷 Vyměnit foto' : '📷 Pořídit / vybrat foto';
-  photoBtn.addEventListener('click', function() { document.getElementById('photo-' + idx).click(); });
-  controls.appendChild(photoBtn);
+  var addBtn = document.createElement('button');
+  addBtn.className = 'photo-add-btn';
+  addBtn.type = 'button';
+  addBtn.innerHTML = '<span style="font-size:26px">📷</span><span style="font-size:10px;margin-top:2px">Přidat</span>';
+  addBtn.addEventListener('click', function() { fileInput.click(); });
+  addWrap.appendChild(addBtn);
 
-  if (f.foto) {
-    var annotBtn = document.createElement('button');
-    annotBtn.className = 'btn btn-secondary btn-sm';
-    annotBtn.type = 'button';
-    annotBtn.textContent = '✏️ Zakreslit';
-    annotBtn.addEventListener('click', (function(i) {
-      return function() {
-        openAnnotModal(findings[i].foto, findings[i].fotoOrig || findings[i].foto, function(annotatedUrl) {
-          var tmp = new Image();
-          tmp.onload = function() {
-            findings[i].foto = annotatedUrl;
-            findings[i].fotoW = tmp.width;
-            findings[i].fotoH = tmp.height;
-            save();
-            renderFindings();
-            setTimeout(function() {
-              var b = document.getElementById('body-' + i);
-              if (b) b.classList.add('open');
-            }, 60);
-          };
-          tmp.src = annotatedUrl;
-        });
-      };
-    })(idx));
-    controls.appendChild(annotBtn);
-
-    var removeBtn = document.createElement('button');
-    removeBtn.className = 'btn btn-secondary btn-sm';
-    removeBtn.type = 'button';
-    removeBtn.textContent = '🗑 Smazat foto';
-    removeBtn.addEventListener('click', function() {
-      findings[idx].foto = null;
-      findings[idx].fotoName = '';
-      findings[idx].fotoW = 0;
-      findings[idx].fotoH = 0;
-      renderFindings();
-      setTimeout(function() {
-        var b = document.getElementById('body-' + idx);
-        if (b) b.classList.add('open');
-      }, 60);
-    });
-    controls.appendChild(removeBtn);
-  }
-
-  area.appendChild(controls);
-  wrap.appendChild(lbl);
-  wrap.appendChild(area);
+  strip.appendChild(addWrap);
+  wrap.appendChild(strip);
   return wrap;
 }
 
 function updateExportScreen() {
   var withPhotos = 0;
-  for (var i = 0; i < findings.length; i++) { if (findings[i].foto) withPhotos++; }
+  for (var i = 0; i < findings.length; i++) { if ((findings[i].fotos || []).some(function(p) { return p.foto; })) withPhotos++; }
   document.getElementById('stat-total').textContent = findings.length;
   document.getElementById('stat-photos').textContent = withPhotos;
   document.getElementById('s-firma').textContent = document.getElementById('h-firma').value || '—';
@@ -785,27 +815,28 @@ async function exportDocx(mode) {
       new D.Paragraph({ children: [normal(f.odpovedna || '—')] }),
     ];
     var foto;
-    if (f.foto) {
-      try {
-        var imgData = base64ToUint8Array(f.foto);
-        var mt = 'jpg';
-        
-        var outW = 200;
-        var outH = 150;
-        if (f.fotoW && f.fotoH) {
-            var ratio = f.fotoW / f.fotoH;
-            if (ratio < 1) {
-                outH = 180;
-                outW = outH * ratio;
-            } else {
-                outW = 200;
-                outH = outW / ratio;
-            }
+    var fotoItems = (f.fotos || []).filter(function(p) { return p.foto; });
+    if (fotoItems.length === 0) {
+      foto = [new D.Paragraph({ children: [normal('')] })];
+    } else {
+      foto = [];
+      var maxW = fotoItems.length > 2 ? 90 : 130;
+      for (var fi = 0; fi < fotoItems.length; fi++) {
+        var fp = fotoItems[fi];
+        try {
+          var imgData = base64ToUint8Array(fp.foto);
+          var outW = maxW, outH = maxW;
+          if (fp.fotoW && fp.fotoH) {
+            var ratio = fp.fotoW / fp.fotoH;
+            if (ratio < 1) { outH = maxW * 1.3; outW = outH * ratio; }
+            else { outH = outW / ratio; }
+          }
+          foto.push(new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { after: fi < fotoItems.length - 1 ? 80 : 0 }, children: [new D.ImageRun({ data: imgData, transformation: { width: Math.round(outW), height: Math.round(outH) }, type: 'jpg' })] }));
+        } catch(e) {
+          foto.push(new D.Paragraph({ children: [normal('(foto ' + (fi + 1) + ' nelze načíst)')] }));
         }
-        
-        foto = [new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.ImageRun({ data: imgData, transformation: { width: outW, height: outH }, type: mt })] })];
-      } catch(e) { foto = [new D.Paragraph({ children: [normal('(foto nelze načíst)')] })]; }
-    } else { foto = [new D.Paragraph({ children: [normal('')] })]; }
+      }
+    }
 
     return new D.TableRow({ children: [
       new D.TableCell({ width: { size: 5, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph({ children: [bold(String(i+1), 22)], alignment: D.AlignmentType.CENTER })], borders: bb(thin), verticalAlign: D.VerticalAlign.TOP, shading: { fill: grayFill } }),
